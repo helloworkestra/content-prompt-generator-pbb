@@ -14,6 +14,7 @@
 drop table if exists generated_log;
 drop table if exists days;
 drop table if exists settings;
+drop table if exists audience_profile;
 drop table if exists businesses;
 
 create table businesses (
@@ -56,23 +57,41 @@ create table settings (
   start_date   date
 );
 
+-- Single-row audience profile (id is always 1). Used by the AI "Generate New Week"
+-- feature to describe the reader so themes stay on-tone.
+create table audience_profile (
+  id              int primary key check (id = 1),
+  who_they_are    text not null default '',
+  their_goal      text not null default '',
+  their_struggles text not null default ''
+);
+insert into audience_profile (id, who_they_are, their_goal, their_struggles) values (
+  1,
+  'US-based tax prep and financial services firm owners, usually running a small team (them plus 2-5 admin or preparer staff), already using GoHighLevel or some CRM but never fully set up right, doing six figures but still buried in manual work every tax season.',
+  'They want to stop being the bottleneck in their own business. They want leads to follow up on themselves, appointments to fill without them chasing, and tax season to not feel like a hostage situation every single year.',
+  'They feel behind, even though the business is technically doing fine. They feel embarrassed that they paid for a whole CRM system and still do half of it manually. They feel resentful of their own growth, because more clients just means more chaos, not more freedom.'
+) on conflict (id) do nothing;
+
 -- --------------------------------------------------------------------
 -- Row Level Security — single-user personal tool, allow anon full access.
 -- --------------------------------------------------------------------
-alter table businesses    enable row level security;
-alter table days          enable row level security;
-alter table generated_log enable row level security;
-alter table settings      enable row level security;
+alter table businesses       enable row level security;
+alter table days             enable row level security;
+alter table generated_log    enable row level security;
+alter table settings         enable row level security;
+alter table audience_profile enable row level security;
 
 drop policy if exists "biz anon all"      on businesses;
 drop policy if exists "days anon all"     on days;
 drop policy if exists "log anon all"      on generated_log;
 drop policy if exists "settings anon all" on settings;
+drop policy if exists "audience anon all" on audience_profile;
 
-create policy "biz anon all"      on businesses    for all to anon using (true) with check (true);
-create policy "days anon all"     on days          for all to anon using (true) with check (true);
-create policy "log anon all"      on generated_log for all to anon using (true) with check (true);
-create policy "settings anon all" on settings      for all to anon using (true) with check (true);
+create policy "biz anon all"      on businesses       for all to anon using (true) with check (true);
+create policy "days anon all"     on days             for all to anon using (true) with check (true);
+create policy "log anon all"      on generated_log    for all to anon using (true) with check (true);
+create policy "settings anon all" on settings         for all to anon using (true) with check (true);
+create policy "audience anon all" on audience_profile for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
 -- Seed: a "My Business" business + the original 30 days
@@ -164,3 +183,20 @@ on conflict (business_id) do nothing;
 -- alter table settings drop constraint if exists settings_id_check;
 -- alter table settings drop column if exists id;
 -- alter table settings add primary key (business_id);
+--
+-- -- audience_profile (single-row, id=1) for the AI Generate New Week feature
+-- create table if not exists audience_profile (
+--   id              int primary key check (id = 1),
+--   who_they_are    text not null default '',
+--   their_goal      text not null default '',
+--   their_struggles text not null default ''
+-- );
+-- alter table audience_profile enable row level security;
+-- drop policy if exists "audience anon all" on audience_profile;
+-- create policy "audience anon all" on audience_profile for all to anon using (true) with check (true);
+-- insert into audience_profile (id, who_they_are, their_goal, their_struggles) values (
+--   1,
+--   'US-based tax prep and financial services firm owners, usually running a small team (them plus 2-5 admin or preparer staff), already using GoHighLevel or some CRM but never fully set up right, doing six figures but still buried in manual work every tax season.',
+--   'They want to stop being the bottleneck in their own business. They want leads to follow up on themselves, appointments to fill without them chasing, and tax season to not feel like a hostage situation every single year.',
+--   'They feel behind, even though the business is technically doing fine. They feel embarrassed that they paid for a whole CRM system and still do half of it manually. They feel resentful of their own growth, because more clients just means more chaos, not more freedom.'
+-- ) on conflict (id) do nothing;

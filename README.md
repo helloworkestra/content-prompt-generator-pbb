@@ -113,6 +113,7 @@ There are three pages. Use the top navigation to switch between them.
 
 ### Topics
 - The full list of every day in your content plan (from the `days` table). Edit the topic, symptom, hook combo, week number, or the 5-post sequence order for any day.
+- **✨ Add New Week (AI)** — one click. The app calls Groq (llama-3.3-70b-versatile) with your Audience Profile and the list of topics you've already used, and comes back with a fresh weekly theme + 7 daily symptoms. Everything is editable before you hit Save; hitting Save inserts 7 consecutive days that share the same topic and hook combo, one symptom each. If your Audience Profile is empty, the button tells you to set it up first.
 - **Add New Topic** — one required field: **Topic**. Everything else auto-fills so you can save in two clicks:
   - **Day number** = (max existing day) + 1
   - **Week number** = ceil(day_number / 7)
@@ -128,6 +129,12 @@ There are three pages. Use the top navigation to switch between them.
 - Need more control? Click **Advanced options** to reveal editable Day / Week / Symptom / Hook Combo / Sequence fields, all pre-filled with the auto-computed values. Overriding any of them saves your custom value. The Edit form uses the same collapsed-by-default layout.
 - **Day number can't be changed after creation.** It's the key that ties every generated prompt in your history back to the right day, so changing it would orphan those prompts. Delete + re-add if you truly need a different number.
 - Deleting a day warns you if it already has generated prompts logged against it. The prompts stay in your history either way — they just show as unassigned going forward.
+
+### Audience (Profile)
+- **One-time setup**, shared across every business. Three textareas describe *who* the reader is, *what* they want, and *what* they're struggling with.
+- These three fields are the only input the AI **Generate New Week** button needs — after this page is filled in once, generating a new week takes one click. No prompts to write, no context to paste, no per-week input.
+- Seeded on first install with a starting profile you can edit or replace.
+- Requires `GROQ_API_KEY` in your server env (`.env.local` for local dev, Vercel project env vars for production) for the AI generation to work. The key is only used server-side inside the `/api/generate-week` route — it is never sent to the browser.
 
 ### Dashboard
 - Ranks your posts by average engagement (likes + comments + shares per post) in three tables: by content type, by weekly topic, and by hook combo.

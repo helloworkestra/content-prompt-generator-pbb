@@ -11,6 +11,7 @@ export default function TopicsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // { mode: 'add'|'edit', row }
+  const [weekOpen, setWeekOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -95,6 +96,7 @@ export default function TopicsPage() {
 
       <div className="row" style={{ marginTop: 0, marginBottom: 12 }}>
         <button className="btn primary" onClick={openAdd}>+ Add New Topic</button>
+        <button className="btn" onClick={() => setWeekOpen(true)}>✨ Add New Week (AI)</button>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -145,6 +147,15 @@ export default function TopicsPage() {
           existingDayNumbers={days.map(d => d.day_number)}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
+
+      {weekOpen && (
+        <WeekForm
+          businessId={businessId}
+          existingDays={days}
+          onClose={() => setWeekOpen(false)}
+          onSaved={() => { setWeekOpen(false); load(); }}
         />
       )}
     </div>
@@ -341,6 +352,189 @@ function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onS
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function WeekForm({ businessId, existingDays, onClose, onSaved }) {
+  const nextDay = existingDays.length ? Math.max(...existingDays.map(d => d.day_number)) + 1 : 1;
+  const [topic, setTopic] = useState('');
+  const [symptoms, setSymptoms] = useState(['', '', '', '', '', '', '']);
+  const [hookCombo, setHookCombo] = useState(hookComboForIndex(existingDays.length));
+  const [startDay, setStartDay] = useState(nextDay);
+  const [advanced, setAdvanced] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const [audienceEmpty, setAudienceEmpty] = useState(false);
+  const [generated, setGenerated] = useState(false);
+
+  async function generate() {
+    setErr(null);
+    setAudienceEmpty(false);
+    setBusy(true);
+    try {
+      const res = await fetch('/api/generate-week', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ businessId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (body?.error === 'AUDIENCE_EMPTY') { setAudienceEmpty(true); return; }
+        throw new Error(body?.error || `Request failed (${res.status}).`);
+      }
+      setTopic(body.topic || '');
+      setSymptoms(body.symptoms || ['', '', '', '', '', '', '']);
+      setGenerated(true);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setSymptomAt(i, v) {
+    setSymptoms((prev) => prev.map((s, idx) => (idx === i ? v : s)));
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setErr(null);
+    if (!topic.trim()) { setErr('Topic is required.'); return; }
+    if (symptoms.some((s) => !s.trim())) { setErr('All 7 symptom lines are required.'); return; }
+    if (!hookCombo.trim()) { setErr('Hook combo is required.'); return; }
+    const start = Number(startDay);
+    if (!Number.isInteger(start) || start < 1) { setErr('Starting day number must be a positive whole number.'); return; }
+
+    const existingDayNumbers = new Set(existingDays.map((d) => d.day_number));
+    const rows = [];
+    for (let i = 0; i < 7; i++) {
+      const dn = start + i;
+      if (existingDayNumbers.has(dn)) {
+        setErr(`Day number ${dn} already exists. Change the starting day in Advanced options.`);
+        return;
+      }
+      rows.push({
+        business_id: businessId,
+        day_number: dn,
+        week_number: Math.ceil(dn / 7),
+        topic: topic.trim(),
+        symptom: symptoms[i].trim(),
+        hook_combo: hookCombo.trim(),
+        sequence: sequenceForDay(dn),
+      });
+    }
+
+    setSaving(true);
+    const { error } = await supabase.from('days').insert(rows);
+    setSaving(false);
+    if (error) setErr(error.message);
+    else onSaved();
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Add New Week (AI)</h3>
+
+        {audienceEmpty ? (
+          <div className="card" style={{ background: '#fff8e6', borderColor: '#f0e0a5' }}>
+            Set up your Audience Profile first. <a href="/settings">Open Audience settings →</a>
+          </div>
+        ) : (
+          <>
+            {!generated && (
+              <div className="muted" style={{ marginBottom: 12 }}>
+                One click. The AI reads your Audience Profile, checks which topics you've already used, and invents a fresh weekly theme + 7 daily symptoms. Everything is editable before you save.
+              </div>
+            )}
+
+            <div className="row" style={{ marginTop: 0, marginBottom: 12 }}>
+              <button type="button" className="btn primary" onClick={generate} disabled={busy || saving}>
+                {busy ? 'Generating…' : generated ? 'Regenerate' : 'Generate New Week'}
+              </button>
+            </div>
+
+            {err && <div className="error">{err}</div>}
+
+            <form onSubmit={save}>
+              <label className="field">
+                Topic (weekly theme)
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder={generated ? '' : 'Click Generate to fill this in — or type your own.'}
+                />
+              </label>
+
+              <div className="field" style={{ marginTop: 12 }}>
+                7 daily symptoms
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                  {symptoms.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <div className="muted" style={{ width: 44, paddingTop: 8 }}>Day {startDay + i}</div>
+                      <textarea
+                        rows={2}
+                        value={s}
+                        onChange={(e) => setSymptomAt(i, e.target.value)}
+                        style={{ flex: 1, fontFamily: 'inherit', fontSize: 14, padding: 8 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <button type="button" className="btn small" onClick={() => setAdvanced((v) => !v)}>
+                  {advanced ? 'Hide advanced options' : 'Advanced options'}
+                </button>
+              </div>
+
+              {advanced && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee' }}>
+                  <label className="field">
+                    Starting day number
+                    <input
+                      type="number"
+                      min="1"
+                      value={startDay}
+                      onChange={(e) => setStartDay(e.target.value)}
+                      style={{ width: '100%', marginTop: 6 }}
+                    />
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      Days {startDay}–{Number(startDay) + 6} will be created. Week numbers are auto-assigned.
+                    </div>
+                  </label>
+                  <label className="field">
+                    Hook Combo (applied to all 7 days)
+                    <input
+                      type="text"
+                      list="week-hook-suggestions"
+                      value={hookCombo}
+                      onChange={(e) => setHookCombo(e.target.value)}
+                    />
+                    <datalist id="week-hook-suggestions">
+                      {HOOK_COMBOS.map((h) => <option key={h} value={h} />)}
+                    </datalist>
+                  </label>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    Post sequence for each day is auto-rotated by the same rule the rest of the app uses.
+                  </div>
+                </div>
+              )}
+
+              <div className="row" style={{ marginTop: 16 }}>
+                <button type="submit" className="btn primary" disabled={saving || busy}>
+                  {saving ? 'Saving…' : 'Save all 7 days'}
+                </button>
+                <button type="button" className="btn" onClick={onClose}>Cancel</button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
