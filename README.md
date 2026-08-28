@@ -136,6 +136,17 @@ There are three pages. Use the top navigation to switch between them.
 - Seeded on first install with a starting profile you can edit or replace.
 - Requires `GROQ_API_KEY` in your server env (`.env.local` for local dev, Vercel project env vars for production) for the AI generation to work. The key is only used server-side inside the `/api/generate-week` route — it is never sent to the browser.
 
+#### Guided Setup (quiz)
+- If the profile has never been filled in, the page opens on **Guided Setup** — a 5-question quiz. If a profile already exists, it opens on **Write it myself** with the current values, and a "Redo guided setup" link is available either way.
+- The 5 fixed questions are:
+  1. Who is your ideal client? (industry, role, team size — be specific)
+  2. What do they want more of in their business right now?
+  3. What's frustrating them about how things currently run day to day?
+  4. What have they already tried or paid for that didn't fully fix the problem?
+  5. What do they feel embarrassed or quietly annoyed about, but wouldn't say out loud to a peer?
+- Hitting **Generate my profile** sends the 5 answers to `/api/generate-profile`, which asks Groq to distill them into the three profile fields.
+- The generated text always lands in the editable **Write it myself** view — nothing is saved until you click **Save**. If generation fails, your answers stay in the quiz so you can retry or fill in the fields manually.
+
 ### Dashboard
 - Ranks your posts by average engagement (likes + comments + shares per post) in three tables: by content type, by weekly topic, and by hook combo.
 - Only counts posts where you've entered any engagement numbers. Enter numbers on the Calendar page first.
