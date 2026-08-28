@@ -12,7 +12,7 @@ export default function TopicsPage() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // { mode: 'add'|'edit', row }
   const [weekOpen, setWeekOpen] = useState(false);
-  const [weekFilter, setWeekFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('daily');
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -98,25 +98,21 @@ export default function TopicsPage() {
       <div className="row" style={{ marginTop: 0, marginBottom: 12, alignItems: 'center' }}>
         <button className="btn primary" onClick={openAdd}>+ Add New Topic</button>
         <button className="btn" onClick={() => setWeekOpen(true)}>✨ Add New Week (AI)</button>
-        {(() => {
-          const weeks = Array.from(new Set(days.map(d => d.week_number))).sort((a, b) => a - b);
-          if (!weeks.length) return null;
-          return (
-            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="muted" style={{ fontSize: 13 }}>Week:</span>
-              <select value={weekFilter} onChange={(e) => setWeekFilter(e.target.value)}>
-                <option value="all">All weeks</option>
-                {weeks.map(w => <option key={w} value={w}>Week {w}</option>)}
-              </select>
-            </label>
-          );
-        })()}
+        {days.length > 0 && (
+          <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="muted" style={{ fontSize: 13 }}>View:</span>
+            <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}
       {loading && <div className="muted">Loading…</div>}
 
-      {!loading && days.length > 0 && (
+      {!loading && days.length > 0 && viewMode === 'daily' && (
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
@@ -131,7 +127,7 @@ export default function TopicsPage() {
               </tr>
             </thead>
             <tbody>
-              {days.filter(d => weekFilter === 'all' || String(d.week_number) === String(weekFilter)).map((d) => (
+              {days.map((d) => (
                 <tr key={d.day_number}>
                   <td className="num">{d.day_number}</td>
                   <td className="num">{d.week_number}</td>
@@ -152,6 +148,41 @@ export default function TopicsPage() {
           </table>
         </div>
       )}
+
+      {!loading && days.length > 0 && viewMode === 'weekly' && (() => {
+        const byWeek = new Map();
+        for (const d of days) {
+          if (!byWeek.has(d.week_number)) byWeek.set(d.week_number, []);
+          byWeek.get(d.week_number).push(d);
+        }
+        const weeks = Array.from(byWeek.entries()).sort((a, b) => a[0] - b[0]);
+        return (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th className="num">Week</th>
+                  <th>Topic</th>
+                  <th className="num">Days</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map(([wn, rows]) => {
+                  const topics = Array.from(new Set(rows.map(r => r.topic).filter(Boolean)));
+                  const dns = rows.map(r => r.day_number).sort((a, b) => a - b);
+                  return (
+                    <tr key={wn}>
+                      <td className="num">{wn}</td>
+                      <td>{topics.join(' · ')}</td>
+                      <td className="num">{dns[0]}–{dns[dns.length - 1]}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {editing && (
         <TopicForm
