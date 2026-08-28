@@ -56,8 +56,10 @@ create index generated_log_biz_day_post_idx on generated_log (business_id, day_n
 
 -- One settings row per business.
 create table settings (
-  business_id  bigint primary key references businesses(id) on delete cascade,
-  start_date   date
+  business_id       bigint primary key references businesses(id) on delete cascade,
+  start_date        date,
+  captions_gpt_url  text,
+  portrait_gpt_url  text
 );
 
 -- One audience profile per business. Used by the AI "Generate New Week" feature

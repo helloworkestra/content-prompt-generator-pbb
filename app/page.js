@@ -33,14 +33,17 @@ export default function Home() {
     if (!error) setHistory(data || []);
   }, [businessId]);
 
+  const [captionsGptUrl, setCaptionsGptUrl] = useState('');
+
   const loadSettings = useCallback(async () => {
     if (!businessId) return;
     const { data } = await supabase
       .from('settings')
-      .select('start_date')
+      .select('start_date, captions_gpt_url')
       .eq('business_id', businessId)
       .maybeSingle();
     setStartDate(data?.start_date || '');
+    setCaptionsGptUrl(data?.captions_gpt_url || '');
   }, [businessId]);
 
   const loadBranding = useCallback(async () => {
@@ -296,6 +299,16 @@ export default function Home() {
             >
               {copied ? 'Copied ✓' : 'Copy'}
             </button>
+            {captionsGptUrl && (
+              <a
+                className="btn"
+                href={captionsGptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open Captions GPT ↗
+              </a>
+            )}
           </div>
         </div>
       )}

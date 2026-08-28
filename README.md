@@ -159,6 +159,12 @@ There are three pages. Use the top navigation to switch between them.
 - Every row has a **Copy Full Prompt** button that stitches the template + this variation + the current Branding colors into one clipboard-ready prompt, plus a **Show Full Prompt** toggle to preview it first.
 - If Branding hasn't been set up yet for this business, a small warning links to the Branding page and the color placeholders stay literal in the preview instead of breaking.
 
+### GPT Links
+- **Per-business setting.** Each business tracks its own **Captions GPT** and **Portrait GPT** URLs (the ChatGPT custom-GPT links you want to jump to when using the prompts this app generates).
+- Set them on the **GPT Links** page in the topnav. Basic URL validation happens on save.
+- Once set, an **Open Captions GPT ↗** button appears next to the Copy button on the Home page's current-prompt card, and **Open Portrait GPT ↗** buttons appear next to the Copy buttons on the Portraits page (both the Master Prompt and every variation row). All open in a new tab so you don't lose your place.
+- If a link isn't set for the current business, the corresponding button is hidden — no dead UI.
+
 ### Dashboard
 - Ranks your posts by average engagement (likes + comments + shares per post) in three tables: by content type, by weekly topic, and by hook combo.
 - Only counts posts where you've entered any engagement numbers. Enter numbers on the Calendar page first.
