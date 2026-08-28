@@ -7,7 +7,7 @@
 --
 -- ALREADY HAVE DATA? Skip the fresh-setup block below and jump to the
 -- "MIGRATION FOR EXISTING INSTALLS" block at the bottom. It's
--- idempotent — wraps everything under a "Default" business without
+-- idempotent — wraps everything under a "My Business" business without
 -- dropping anything.
 -- =====================================================================
 
@@ -75,11 +75,12 @@ create policy "log anon all"      on generated_log for all to anon using (true) 
 create policy "settings anon all" on settings      for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
--- Seed: a "Default" business + the original 30 days
+-- Seed: a "My Business" business + the original 30 days
+-- (Rename it any time from the switcher in the app's top nav.)
 -- --------------------------------------------------------------------
-insert into businesses (name) values ('Default');
+insert into businesses (name) values ('My Business');
 
-with b as (select id from businesses where name = 'Default')
+with b as (select id from businesses where name = 'My Business')
 insert into days (business_id, day_number, week_number, topic, symptom, hook_combo, sequence)
 select b.id, v.* from b, (values
 -- Week 1
@@ -118,7 +119,7 @@ select b.id, v.* from b, (values
 (30, 4, 'What this is actually costing you emotionally', 'Low hum of dread before busy periods',     'Pain of fear + Trigger of discomfort', array['Authority','Handraiser','Relatable','Personal Take','Disruptor'])
 ) as v(day_number, week_number, topic, symptom, hook_combo, sequence);
 
-with b as (select id from businesses where name = 'Default')
+with b as (select id from businesses where name = 'My Business')
 insert into settings (business_id, start_date) select id, null from b
 on conflict (business_id) do nothing;
 
@@ -127,7 +128,7 @@ on conflict (business_id) do nothing;
 -- MIGRATION FOR EXISTING INSTALLS
 -- Only run this block if you already had the OLD (single-business)
 -- schema and want to keep your existing data. Skip the fresh-setup
--- block above. This wraps everything under a "Default" business.
+-- block above. This wraps everything under a "My Business" business.
 -- Idempotent — safe to run more than once.
 -- =====================================================================
 --
@@ -139,11 +140,11 @@ on conflict (business_id) do nothing;
 -- alter table businesses enable row level security;
 -- drop policy if exists "biz anon all" on businesses;
 -- create policy "biz anon all" on businesses for all to anon using (true) with check (true);
--- insert into businesses (name) values ('Default') on conflict (name) do nothing;
+-- insert into businesses (name) values ('My Business') on conflict (name) do nothing;
 --
 -- -- add business_id to days
 -- alter table days add column if not exists business_id bigint references businesses(id) on delete cascade;
--- update days set business_id = (select id from businesses where name='Default') where business_id is null;
+-- update days set business_id = (select id from businesses where name='My Business') where business_id is null;
 -- alter table days alter column business_id set not null;
 -- -- swap PK to (business_id, day_number)
 -- alter table days drop constraint if exists days_pkey;
@@ -151,14 +152,14 @@ on conflict (business_id) do nothing;
 --
 -- -- add business_id to generated_log
 -- alter table generated_log add column if not exists business_id bigint references businesses(id) on delete cascade;
--- update generated_log set business_id = (select id from businesses where name='Default') where business_id is null;
+-- update generated_log set business_id = (select id from businesses where name='My Business') where business_id is null;
 -- alter table generated_log alter column business_id set not null;
 -- create index if not exists generated_log_biz_created_idx on generated_log (business_id, created_at desc);
 -- create index if not exists generated_log_biz_day_post_idx on generated_log (business_id, day_number, post_index);
 --
 -- -- migrate settings: switch from single-row (id=1) to per-business
 -- alter table settings add column if not exists business_id bigint references businesses(id) on delete cascade;
--- update settings set business_id = (select id from businesses where name='Default') where business_id is null;
+-- update settings set business_id = (select id from businesses where name='My Business') where business_id is null;
 -- alter table settings drop constraint if exists settings_pkey;
 -- alter table settings drop constraint if exists settings_id_check;
 -- alter table settings drop column if exists id;

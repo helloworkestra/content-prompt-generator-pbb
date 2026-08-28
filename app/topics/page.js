@@ -2,10 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { CONTENT_TYPES } from '../../lib/templates';
+import { CONTENT_TYPES, HOOK_COMBOS, hookComboForIndex, sequenceForDay } from '../../lib/templates';
 import { useBusiness } from '../../lib/BusinessContext';
-
-const EMPTY_SEQ = [...CONTENT_TYPES];
 
 export default function TopicsPage() {
   const { currentId: businessId, current: business } = useBusiness();
@@ -38,15 +36,15 @@ export default function TopicsPage() {
         week_number: Math.ceil(nextDay / 7),
         topic: '',
         symptom: '',
-        hook_combo: '',
-        sequence: [...EMPTY_SEQ],
+        hook_combo: hookComboForIndex(days.length),
+        sequence: sequenceForDay(nextDay),
       },
     });
   }
 
   function openDuplicate(row) {
     const nextDay = days.length ? Math.max(...days.map(d => d.day_number)) + 1 : 1;
-    const seq = (row.sequence && row.sequence.length === 5) ? [...row.sequence] : [...EMPTY_SEQ];
+    const seq = (row.sequence && row.sequence.length === 5) ? [...row.sequence] : sequenceForDay(nextDay);
     setEditing({
       mode: 'add',
       row: {
@@ -54,14 +52,14 @@ export default function TopicsPage() {
         week_number: Math.ceil(nextDay / 7),
         topic: row.topic,
         symptom: row.symptom,
-        hook_combo: row.hook_combo,
+        hook_combo: row.hook_combo || hookComboForIndex(days.length),
         sequence: seq,
       },
     });
   }
 
   function openEdit(row) {
-    const seq = (row.sequence && row.sequence.length === 5) ? [...row.sequence] : [...EMPTY_SEQ];
+    const seq = (row.sequence && row.sequence.length === 5) ? [...row.sequence] : sequenceForDay(row.day_number);
     setEditing({ mode: 'edit', row: { ...row, sequence: seq } });
   }
 
@@ -155,14 +153,38 @@ export default function TopicsPage() {
 
 function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
+  const [symptomTouched, setSymptomTouched] = useState(mode === 'edit' && initial.symptom !== initial.topic);
+  const [advanced, setAdvanced] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
-  function setField(k, v) { setForm({ ...form, [k]: v }); }
+  function setField(k, v) { setForm((f) => ({ ...f, [k]: v })); }
   function setSeqAt(i, v) {
-    const s = [...form.sequence];
-    s[i] = v;
-    setForm({ ...form, sequence: s });
+    setForm((f) => {
+      const s = [...f.sequence];
+      s[i] = v;
+      return { ...f, sequence: s };
+    });
+  }
+
+  // Typing in Topic mirrors into Symptom until the user has explicitly
+  // edited Symptom in the advanced panel.
+  function onTopicChange(v) {
+    setForm((f) => ({
+      ...f,
+      topic: v,
+      symptom: symptomTouched ? f.symptom : v,
+    }));
+  }
+
+  // Keep week_number in sync when day_number changes in advanced mode.
+  function onDayNumberChange(v) {
+    const dn = Number(v);
+    setForm((f) => ({
+      ...f,
+      day_number: v,
+      week_number: Number.isInteger(dn) && dn > 0 ? Math.ceil(dn / 7) : f.week_number,
+    }));
   }
 
   async function save(e) {
@@ -173,8 +195,12 @@ function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onS
     const wn = Number(form.week_number);
     if (!Number.isInteger(dn) || dn < 1) { setErr('Day number must be a positive whole number.'); return; }
     if (!Number.isInteger(wn) || wn < 1) { setErr('Week number must be a positive whole number.'); return; }
-    if (!form.topic.trim() || !form.symptom.trim() || !form.hook_combo.trim()) {
-      setErr('Topic, symptom, and hook combo are required.');
+
+    // Symptom falls back to Topic when the user never touched it (default flow).
+    const effectiveSymptom = (form.symptom && form.symptom.trim()) || form.topic.trim();
+
+    if (!form.topic.trim() || !effectiveSymptom || !form.hook_combo.trim()) {
+      setErr('Topic and Hook Combo are required.');
       return;
     }
     if (form.sequence.length !== 5 || form.sequence.some((s) => !CONTENT_TYPES.includes(s))) {
@@ -191,7 +217,7 @@ function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onS
       day_number: dn,
       week_number: wn,
       topic: form.topic.trim(),
-      symptom: form.symptom.trim(),
+      symptom: effectiveSymptom,
       hook_combo: form.hook_combo.trim(),
       sequence: form.sequence,
     };
@@ -199,7 +225,6 @@ function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onS
     if (mode === 'add') {
       ({ error } = await supabase.from('days').insert({ ...payload, business_id: businessId }));
     } else {
-      // day_number is not editable in edit mode
       const { day_number, ...rest } = payload;
       ({ error } = await supabase
         .from('days')
@@ -218,54 +243,94 @@ function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onS
         <h3>{mode === 'add' ? 'Add New Topic' : `Edit Day ${initial.day_number}`}</h3>
         <form onSubmit={save}>
           <label className="field">
-            Day number {mode === 'edit' && <span className="muted">(can&apos;t be changed)</span>}
-            <input
-              type="number"
-              min="1"
-              value={form.day_number}
-              onChange={(e) => setField('day_number', e.target.value)}
-              disabled={mode === 'edit'}
-              style={{ width: '100%', marginTop: 6 }}
-            />
-          </label>
-          <label className="field">
-            Week number
-            <input
-              type="number"
-              min="1"
-              value={form.week_number}
-              onChange={(e) => setField('week_number', e.target.value)}
-              style={{ width: '100%', marginTop: 6 }}
-            />
-          </label>
-          <label className="field">
             Topic
-            <input type="text" value={form.topic} onChange={(e) => setField('topic', e.target.value)} />
-          </label>
-          <label className="field">
-            Symptom
-            <input type="text" value={form.symptom} onChange={(e) => setField('symptom', e.target.value)} />
-          </label>
-          <label className="field">
-            Hook Combo
-            <input type="text" value={form.hook_combo} onChange={(e) => setField('hook_combo', e.target.value)} />
+            <input
+              type="text"
+              required
+              autoFocus
+              value={form.topic}
+              onChange={(e) => onTopicChange(e.target.value)}
+              placeholder="e.g. Missed follow-ups killing your pipeline"
+            />
           </label>
 
-          <div className="field" style={{ marginTop: 12 }}>
-            Sequence (post order)
-            <div className="seq-grid">
-              {form.sequence.map((val, i) => (
-                <label key={i}>
-                  Post {i + 1}
-                  <select value={val} onChange={(e) => setSeqAt(i, e.target.value)}>
-                    {CONTENT_TYPES.map((ct) => (
-                      <option key={ct} value={ct}>{ct}</option>
-                    ))}
-                  </select>
-                </label>
-              ))}
+          {!advanced && (
+            <div className="muted" style={{ marginTop: 4, fontSize: 12, lineHeight: 1.5 }}>
+              Auto: Day <strong>{form.day_number}</strong> · Week <strong>{form.week_number}</strong> · Hook <em>{form.hook_combo}</em> · Sequence <em>{form.sequence.join(' → ')}</em>
             </div>
+          )}
+
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => setAdvanced((v) => !v)}
+            >
+              {advanced ? 'Hide advanced options' : 'Advanced options'}
+            </button>
           </div>
+
+          {advanced && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee' }}>
+              <label className="field">
+                Day number {mode === 'edit' && <span className="muted">(can&apos;t be changed)</span>}
+                <input
+                  type="number"
+                  min="1"
+                  value={form.day_number}
+                  onChange={(e) => onDayNumberChange(e.target.value)}
+                  disabled={mode === 'edit'}
+                  style={{ width: '100%', marginTop: 6 }}
+                />
+              </label>
+              <label className="field">
+                Week number
+                <input
+                  type="number"
+                  min="1"
+                  value={form.week_number}
+                  onChange={(e) => setField('week_number', e.target.value)}
+                  style={{ width: '100%', marginTop: 6 }}
+                />
+              </label>
+              <label className="field">
+                Symptom <span className="muted">(defaults to Topic if left blank)</span>
+                <input
+                  type="text"
+                  value={form.symptom}
+                  onChange={(e) => { setSymptomTouched(true); setField('symptom', e.target.value); }}
+                />
+              </label>
+              <label className="field">
+                Hook Combo
+                <input
+                  type="text"
+                  list="hook-combo-suggestions"
+                  value={form.hook_combo}
+                  onChange={(e) => setField('hook_combo', e.target.value)}
+                />
+                <datalist id="hook-combo-suggestions">
+                  {HOOK_COMBOS.map((h) => <option key={h} value={h} />)}
+                </datalist>
+              </label>
+
+              <div className="field" style={{ marginTop: 12 }}>
+                Sequence (post order)
+                <div className="seq-grid">
+                  {form.sequence.map((val, i) => (
+                    <label key={i}>
+                      Post {i + 1}
+                      <select value={val} onChange={(e) => setSeqAt(i, e.target.value)}>
+                        {CONTENT_TYPES.map((ct) => (
+                          <option key={ct} value={ct}>{ct}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {err && <div className="error">{err}</div>}
 

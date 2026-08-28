@@ -113,7 +113,19 @@ There are three pages. Use the top navigation to switch between them.
 
 ### Topics
 - The full list of every day in your content plan (from the `days` table). Edit the topic, symptom, hook combo, week number, or the 5-post sequence order for any day.
-- **Add New Topic** creates a new day. The day number auto-suggests the next unused one but you can override it to fill a gap left by a deletion. Duplicates are rejected up front with a clear error.
+- **Add New Topic** — one required field: **Topic**. Everything else auto-fills so you can save in two clicks:
+  - **Day number** = (max existing day) + 1
+  - **Week number** = ceil(day_number / 7)
+  - **Symptom** = mirrors Topic (until you edit it in advanced options)
+  - **Hook Combo** = rotates through a fixed list based on how many days already exist:
+    1. Pain of invisibility + Trigger of realization
+    2. Pain of wasted effort + Trigger of loss aversion
+    3. Pain of uncertainty + Trigger of identity shift
+    4. Pain of fear + Trigger of discomfort
+    5. Pain of comparison + Trigger of contrast
+    6. Pain of stagnation + Trigger of time sensitivity
+  - **Sequence** = the same rotation the app already uses — `["Handraiser","Relatable","Personal Take","Disruptor","Authority"]` rotated by `(day_number - 1) % 5`
+- Need more control? Click **Advanced options** to reveal editable Day / Week / Symptom / Hook Combo / Sequence fields, all pre-filled with the auto-computed values. Overriding any of them saves your custom value. The Edit form uses the same collapsed-by-default layout.
 - **Day number can't be changed after creation.** It's the key that ties every generated prompt in your history back to the right day, so changing it would orphan those prompts. Delete + re-add if you truly need a different number.
 - Deleting a day warns you if it already has generated prompts logged against it. The prompts stay in your history either way — they just show as unassigned going forward.
 
