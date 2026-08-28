@@ -15,6 +15,7 @@ drop table if exists generated_log;
 drop table if exists days;
 drop table if exists settings;
 drop table if exists audience_profile;
+drop table if exists visual_prompt_template;
 drop table if exists branding_profile;
 drop table if exists portrait_variations;
 drop table if exists portrait_base_template;
@@ -118,7 +119,16 @@ create table branding_profile (
   heading_font            text not null default 'Inter',
   body_font               text not null default 'Inter',
   subheading_font         text not null default 'Inter',
-  accent_font             text not null default 'Inter'
+  accent_font             text not null default 'Inter',
+  owner_name              text not null default '',
+  owner_title             text not null default ''
+);
+
+-- One visual (graphic) master prompt per business. Placeholders are resolved
+-- at copy-time from branding_profile.
+create table visual_prompt_template (
+  business_id   bigint primary key references businesses(id) on delete cascade,
+  template_text text not null default ''
 );
 
 -- Seed a starter profile for the initial "My Business" so the app isn't empty.
@@ -143,6 +153,7 @@ alter table audience_profile       enable row level security;
 alter table branding_profile       enable row level security;
 alter table portrait_base_template enable row level security;
 alter table portrait_variations    enable row level security;
+alter table visual_prompt_template enable row level security;
 alter table business_links         enable row level security;
 
 drop policy if exists "biz anon all"           on businesses;
@@ -153,6 +164,7 @@ drop policy if exists "audience anon all"      on audience_profile;
 drop policy if exists "branding anon all"      on branding_profile;
 drop policy if exists "portrait base anon all" on portrait_base_template;
 drop policy if exists "portrait var anon all"  on portrait_variations;
+drop policy if exists "visual tpl anon all"    on visual_prompt_template;
 drop policy if exists "biz links anon all"     on business_links;
 
 create policy "biz anon all"           on businesses             for all to anon using (true) with check (true);
@@ -163,6 +175,7 @@ create policy "audience anon all"      on audience_profile       for all to anon
 create policy "branding anon all"      on branding_profile       for all to anon using (true) with check (true);
 create policy "portrait base anon all" on portrait_base_template for all to anon using (true) with check (true);
 create policy "portrait var anon all"  on portrait_variations    for all to anon using (true) with check (true);
+create policy "visual tpl anon all"    on visual_prompt_template for all to anon using (true) with check (true);
 create policy "biz links anon all"     on business_links         for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
@@ -227,7 +240,8 @@ insert into branding_profile (
   secondary_bg_color, secondary_bg_color_name,
   accent_color,       accent_color_name,
   soft_accent_color,  soft_accent_color_name,
-  heading_font, body_font, subheading_font, accent_font
+  heading_font, body_font, subheading_font, accent_font,
+  owner_name, owner_title
 ) select
   id,
   '#356B52', 'Deep Sage',
@@ -237,7 +251,8 @@ insert into branding_profile (
   '#DDE9DF', 'Soft Sage',
   '#D96B32', 'Terracotta',
   '#879B78', 'Muted Sage',
-  'Inter', 'Inter', 'Inter', 'Inter'
+  'Inter', 'Inter', 'Inter', 'Inter',
+  'Giem Muel Catubay', 'GHL Specialist for Tax Firms'
 from b
 on conflict (business_id) do nothing;
 
@@ -260,6 +275,48 @@ select b.id, v.pos, v.txt from b cross join (values
   (6, 'Slight low-angle shot looking up at subject, standing tall, shoulders back, calm expression'),
   (7, 'Over-the-shoulder angle, head turned back toward camera, relaxed half-smile')
 ) as v(pos, txt);
+
+-- Seed the visual (graphic) master prompt template for the initial business.
+with b as (select id from businesses where name = 'My Business')
+insert into visual_prompt_template (business_id, template_text)
+select id, 'You are a graphic generator for {OWNER_NAME} ({OWNER_TITLE}). Do NOT generate any image immediately after receiving these instructions. Wait until the user sends a separate message containing the actual headline text for a specific post. These setup instructions are configuration only, not content to generate from.
+
+Your job is to produce a single clean, branded social media graphic based on a piece of text the user sends you.
+
+BRAND COLORS — use ONLY these exact hex codes, nothing else:
+- {MAIN_COLOR_NAME} {MAIN_COLOR_HEX} (main brand color, CTA elements)
+- {TEXT_COLOR_NAME} {TEXT_COLOR_HEX} (primary dark background / main text on light areas)
+- {BG_COLOR_NAME} {BG_COLOR_HEX} (light background option)
+- {SECONDARY_BG_COLOR_NAME} {SECONDARY_BG_COLOR_HEX} (secondary background option)
+- {ACCENT_COLOR_NAME} {ACCENT_COLOR_HEX} (accent only — sparingly, for emphasis words, small shapes, or highlights)
+- {SOFT_ACCENT_COLOR_NAME} {SOFT_ACCENT_COLOR_HEX} (soft accent — sparingly)
+
+TYPOGRAPHY — use ONLY these fonts:
+- Headings: {HEADING_FONT} (bold)
+- Body: {BODY_FONT}
+- Subheadings: {SUBHEADING_FONT}
+- Accent/labels: {ACCENT_FONT} (uppercase, tracked out)
+
+LAYOUT (base structure, but randomize placement each time):
+1. Background: dark ({TEXT_COLOR_NAME} or {MAIN_COLOR_NAME}), with 1-2 soft rounded organic shapes (circles/blobs) in {MAIN_COLOR_NAME} and {ACCENT_COLOR_NAME}. Randomize which corners or edges they sit in, and their size, each time you generate — never repeat the same arrangement twice in a row.
+2. Photo: place the user''s provided photo in the composition, blended naturally into the background (not a hard rectangle). Randomize its position each time — left, right, or full-bleed background with a color overlay.
+3. Headline text: bold, large, stacked across 2-4 short lines. Randomize alignment (left, right, or centered) and vertical position (top-heavy or bottom-heavy). Most words in white/{BG_COLOR_NAME}. Selectively color 1-2 key words per graphic in {MAIN_COLOR_NAME} or {ACCENT_COLOR_NAME} for emphasis (never both colors on the same word). Add a thin horizontal accent line ({ACCENT_COLOR_NAME} or {MAIN_COLOR_NAME}) above or below the text block.
+4. Footer/logo lockup: use one of the three approved logo files provided (circular badge, horizontal, or horizontal extended) — pick whichever fits the layout best for that graphic. Position in a bottom corner or bottom-center, always fully legible and never cropped or resized to the point of distortion.
+
+ICONS: If an icon is needed anywhere in the design, choose only from this approved set — network/node diagrams, circuit board pattern, hexagon/dot grid, microchip, rocket, speech bubbles, stacked cubes, growth chart with hand, directional arrow, dotted texture pattern, or rounded pill/rectangle shapes. Do not introduce any icon, illustration, or graphic element outside this list.
+
+RULES:
+- Never use colors outside the 6 hex codes above.
+- Never use icons outside the approved set.
+- Never use a logo other than the 3 approved logo files.
+- Never add extra text, taglines, or elements beyond: the headline text I send you, the user''s photo, and the logo lockup.
+- Keep the composition clean — no clutter, no emojis, no stock icons.
+- Every graphic should look visually distinct from the last one — vary shape placement, photo placement, and text alignment each time.
+- Output format: square 1:1 graphic, ready for Instagram/Facebook posting.
+
+When I send you text, treat it as the headline for a NEW graphic request. Do not generate an image in response to this instructions message itself — only generate when a distinct headline/caption is provided in a follow-up message. Ask me only if you need the photo file or if the text is too long to fit cleanly — otherwise generate the graphic directly.'
+from b
+on conflict (business_id) do nothing;
 
 
 -- =====================================================================
@@ -403,3 +460,16 @@ select b.id, v.pos, v.txt from b cross join (values
 --   (7, 'Over-the-shoulder angle, head turned back toward camera, relaxed half-smile')
 -- ) as v(pos, txt)
 -- where not exists (select 1 from existing);
+--
+-- -- Add owner_name / owner_title to branding_profile (Visuals feature).
+-- alter table branding_profile add column if not exists owner_name  text not null default '';
+-- alter table branding_profile add column if not exists owner_title text not null default '';
+--
+-- -- visual_prompt_template (per-business) — one master graphic prompt per business.
+-- create table if not exists visual_prompt_template (
+--   business_id   bigint primary key references businesses(id) on delete cascade,
+--   template_text text not null default ''
+-- );
+-- alter table visual_prompt_template enable row level security;
+-- drop policy if exists "visual tpl anon all" on visual_prompt_template;
+-- create policy "visual tpl anon all" on visual_prompt_template for all to anon using (true) with check (true);
