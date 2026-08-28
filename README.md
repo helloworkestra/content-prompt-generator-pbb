@@ -153,6 +153,12 @@ There are three pages. Use the top navigation to switch between them.
 - **Live preview** below the form updates as you type — no need to Save to see the change. Google Fonts are loaded on the fly for whichever fonts are currently selected.
 - **Light styling on the Home page.** The saved brand color + heading font are applied to the Home page heading, and the CTA color + accent font are applied to the "Copy" button on the current-prompt card. Text stays readable — the button text auto-flips to black or white depending on brightness of your chosen background. Everything falls back to sensible defaults if a business hasn't set up branding yet.
 
+### Portraits
+- **Per-business prompt library** for generating on-brand headshots from a reference photo. One shared **Base Template** with a `{VARIATION}` slot plus color placeholders (`{MAIN_COLOR}`, `{TEXT_COLOR}`, `{BG_COLOR}`, `{SECONDARY_BG_COLOR}`, `{ACCENT_COLOR}`, `{SOFT_ACCENT_COLOR}`) that resolve at copy-time from that business's saved Branding colors.
+- **Variations list** below the template — each entry is one pose/wardrobe/angle description. Add as many as you want, edit inline, reorder with up/down arrows, delete individually.
+- Every row has a **Copy Full Prompt** button that stitches the template + this variation + the current Branding colors into one clipboard-ready prompt, plus a **Show Full Prompt** toggle to preview it first.
+- If Branding hasn't been set up yet for this business, a small warning links to the Branding page and the color placeholders stay literal in the preview instead of breaking.
+
 ### Dashboard
 - Ranks your posts by average engagement (likes + comments + shares per post) in three tables: by content type, by weekly topic, and by hook combo.
 - Only counts posts where you've entered any engagement numbers. Enter numbers on the Calendar page first.

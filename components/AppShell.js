@@ -15,6 +15,7 @@ export default function AppShell({ children }) {
           <Link href="/topics">Topics</Link>
           <Link href="/settings">Audience</Link>
           <Link href="/branding">Branding</Link>
+          <Link href="/portraits">Portraits</Link>
           <BusinessSwitcher />
         </div>
       </nav>

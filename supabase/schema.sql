@@ -16,6 +16,8 @@ drop table if exists days;
 drop table if exists settings;
 drop table if exists audience_profile;
 drop table if exists branding_profile;
+drop table if exists portrait_variations;
+drop table if exists portrait_base_template;
 drop table if exists businesses;
 
 create table businesses (
@@ -67,6 +69,22 @@ create table audience_profile (
   their_struggles text not null default ''
 );
 
+-- Branded portrait prompt library — one base template per business + many
+-- variation entries. Colors in the template are placeholders resolved at
+-- copy-time from branding_profile.
+create table portrait_base_template (
+  business_id   bigint primary key references businesses(id) on delete cascade,
+  template_text text not null default ''
+);
+
+create table portrait_variations (
+  id             bigint generated always as identity primary key,
+  business_id    bigint not null references businesses(id) on delete cascade,
+  position       int not null,
+  variation_text text not null
+);
+create index portrait_variations_biz_pos_idx on portrait_variations (business_id, position);
+
 -- One branding profile per business. Powers the Branding page + light
 -- styling on the Home page (heading + Copy button).
 create table branding_profile (
@@ -98,26 +116,32 @@ on conflict (business_id) do nothing;
 -- --------------------------------------------------------------------
 -- Row Level Security — single-user personal tool, allow anon full access.
 -- --------------------------------------------------------------------
-alter table businesses       enable row level security;
-alter table days             enable row level security;
-alter table generated_log    enable row level security;
-alter table settings         enable row level security;
-alter table audience_profile enable row level security;
-alter table branding_profile enable row level security;
+alter table businesses             enable row level security;
+alter table days                   enable row level security;
+alter table generated_log          enable row level security;
+alter table settings               enable row level security;
+alter table audience_profile       enable row level security;
+alter table branding_profile       enable row level security;
+alter table portrait_base_template enable row level security;
+alter table portrait_variations    enable row level security;
 
-drop policy if exists "biz anon all"      on businesses;
-drop policy if exists "days anon all"     on days;
-drop policy if exists "log anon all"      on generated_log;
-drop policy if exists "settings anon all" on settings;
-drop policy if exists "audience anon all" on audience_profile;
-drop policy if exists "branding anon all" on branding_profile;
+drop policy if exists "biz anon all"           on businesses;
+drop policy if exists "days anon all"          on days;
+drop policy if exists "log anon all"           on generated_log;
+drop policy if exists "settings anon all"      on settings;
+drop policy if exists "audience anon all"      on audience_profile;
+drop policy if exists "branding anon all"      on branding_profile;
+drop policy if exists "portrait base anon all" on portrait_base_template;
+drop policy if exists "portrait var anon all"  on portrait_variations;
 
-create policy "biz anon all"      on businesses       for all to anon using (true) with check (true);
-create policy "days anon all"     on days             for all to anon using (true) with check (true);
-create policy "log anon all"      on generated_log    for all to anon using (true) with check (true);
-create policy "settings anon all" on settings         for all to anon using (true) with check (true);
-create policy "audience anon all" on audience_profile for all to anon using (true) with check (true);
-create policy "branding anon all" on branding_profile for all to anon using (true) with check (true);
+create policy "biz anon all"           on businesses             for all to anon using (true) with check (true);
+create policy "days anon all"          on days                   for all to anon using (true) with check (true);
+create policy "log anon all"           on generated_log          for all to anon using (true) with check (true);
+create policy "settings anon all"      on settings               for all to anon using (true) with check (true);
+create policy "audience anon all"      on audience_profile       for all to anon using (true) with check (true);
+create policy "branding anon all"      on branding_profile       for all to anon using (true) with check (true);
+create policy "portrait base anon all" on portrait_base_template for all to anon using (true) with check (true);
+create policy "portrait var anon all"  on portrait_variations    for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
 -- Seed: a "My Business" business + the original 30 days
@@ -167,6 +191,25 @@ select b.id, v.* from b, (values
 with b as (select id from businesses where name = 'My Business')
 insert into settings (business_id, start_date) select id, null from b
 on conflict (business_id) do nothing;
+
+-- Seed the portrait base template + starter variations for the initial business.
+with b as (select id from businesses where name = 'My Business')
+insert into portrait_base_template (business_id, template_text)
+select id, 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_COLOR}, {TEXT_COLOR}, {BG_COLOR}, {SECONDARY_BG_COLOR}, {ACCENT_COLOR}, {SOFT_ACCENT_COLOR}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.'
+from b
+on conflict (business_id) do nothing;
+
+with b as (select id from businesses where name = 'My Business')
+insert into portrait_variations (business_id, position, variation_text)
+select b.id, v.pos, v.txt from b cross join (values
+  (1, 'Straight-on angle, confident posture, slight smile, hands loosely clasped in front'),
+  (2, 'Side profile turned toward camera, one hand resting on chin thoughtfully'),
+  (3, 'Sitting on a stool, leaning slightly forward, elbows on knees, approachable expression'),
+  (4, 'Standing with arms crossed, confident and approachable, slight head tilt'),
+  (5, 'Same pose as reference, but wearing a solid Warm Ivory button-up shirt with sleeves rolled up'),
+  (6, 'Slight low-angle shot looking up at subject, standing tall, shoulders back, calm expression'),
+  (7, 'Over-the-shoulder angle, head turned back toward camera, relaxed half-smile')
+) as v(pos, txt);
 
 
 -- =====================================================================
@@ -270,3 +313,43 @@ on conflict (business_id) do nothing;
 -- alter table branding_profile enable row level security;
 -- drop policy if exists "branding anon all" on branding_profile;
 -- create policy "branding anon all" on branding_profile for all to anon using (true) with check (true);
+--
+-- -- portrait tables (per-business) — branded portrait prompt library.
+-- create table if not exists portrait_base_template (
+--   business_id   bigint primary key references businesses(id) on delete cascade,
+--   template_text text not null default ''
+-- );
+-- create table if not exists portrait_variations (
+--   id             bigint generated always as identity primary key,
+--   business_id    bigint not null references businesses(id) on delete cascade,
+--   position       int not null,
+--   variation_text text not null
+-- );
+-- create index if not exists portrait_variations_biz_pos_idx on portrait_variations (business_id, position);
+-- alter table portrait_base_template enable row level security;
+-- alter table portrait_variations    enable row level security;
+-- drop policy if exists "portrait base anon all" on portrait_base_template;
+-- drop policy if exists "portrait var anon all"  on portrait_variations;
+-- create policy "portrait base anon all" on portrait_base_template for all to anon using (true) with check (true);
+-- create policy "portrait var anon all"  on portrait_variations    for all to anon using (true) with check (true);
+--
+-- -- Seed template + 7 starter variations for the first business (only if not already seeded).
+-- with b as (select id from businesses order by id limit 1)
+-- insert into portrait_base_template (business_id, template_text)
+-- select id, 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_COLOR}, {TEXT_COLOR}, {BG_COLOR}, {SECONDARY_BG_COLOR}, {ACCENT_COLOR}, {SOFT_ACCENT_COLOR}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.'
+-- from b
+-- on conflict (business_id) do nothing;
+--
+-- with b as (select id from businesses order by id limit 1),
+--      existing as (select 1 from portrait_variations where business_id = (select id from b) limit 1)
+-- insert into portrait_variations (business_id, position, variation_text)
+-- select b.id, v.pos, v.txt from b cross join (values
+--   (1, 'Straight-on angle, confident posture, slight smile, hands loosely clasped in front'),
+--   (2, 'Side profile turned toward camera, one hand resting on chin thoughtfully'),
+--   (3, 'Sitting on a stool, leaning slightly forward, elbows on knees, approachable expression'),
+--   (4, 'Standing with arms crossed, confident and approachable, slight head tilt'),
+--   (5, 'Same pose as reference, but wearing a solid Warm Ivory button-up shirt with sleeves rolled up'),
+--   (6, 'Slight low-angle shot looking up at subject, standing tall, shoulders back, calm expression'),
+--   (7, 'Over-the-shoulder angle, head turned back toward camera, relaxed half-smile')
+-- ) as v(pos, txt)
+-- where not exists (select 1 from existing);
