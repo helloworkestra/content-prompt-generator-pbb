@@ -34,17 +34,17 @@ export async function POST(req) {
   }
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Optional: allow the frontend to scope "already-used topics" to the current business.
   let businessId = null;
   try {
     const body = await req.json().catch(() => ({}));
-    if (body && typeof body.businessId !== 'undefined') businessId = body.businessId;
+    if (body && body.businessId != null) businessId = Number(body.businessId);
   } catch {}
+  if (!businessId) return json({ error: 'businessId is required.' }, 400);
 
   const { data: profile, error: profErr } = await supabase
     .from('audience_profile')
     .select('who_they_are, their_goal, their_struggles')
-    .eq('id', 1)
+    .eq('business_id', businessId)
     .maybeSingle();
   if (profErr) return json({ error: `Failed to load audience profile: ${profErr.message}` }, 500);
 
@@ -58,9 +58,10 @@ export async function POST(req) {
 
   let existingTopics = [];
   {
-    let q = supabase.from('days').select('topic');
-    if (businessId) q = q.eq('business_id', businessId);
-    const { data, error } = await q;
+    const { data, error } = await supabase
+      .from('days')
+      .select('topic')
+      .eq('business_id', businessId);
     if (error) return json({ error: `Failed to load existing topics: ${error.message}` }, 500);
     existingTopics = Array.from(new Set((data || []).map((d) => d.topic).filter(Boolean)));
   }

@@ -1,14 +1,13 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SYSTEM_PROMPT = `You turn a business owner's raw answers about their ideal client into three polished audience profile fields for a content marketing system. Given answers to 5 questions (who the client is, what they want, what frustrates them, what they've already tried, what they're quietly embarrassed about), write: who_they_are (a specific, concrete description of the audience, not generic), their_goal (what they actually want, in plain direct language), and their_struggles (a short paragraph naming their real emotional struggles — not surface-level pain points, the underlying feelings). Keep all three grounded in the user's actual answers, don't invent unrelated details. Return ONLY a JSON object in this exact shape: {"who_they_are": "...", "their_goal": "...", "their_struggles": "..."} — no other text, no markdown, no explanation.`;
+const SYSTEM_PROMPT = `You turn a business owner's raw answers about their ideal client into three polished audience profile fields for a content marketing system. Given answers to 4 questions (who the client is, what they want, what frustrates them, what they've already tried), write: who_they_are (a specific, concrete description of the audience, not generic), their_goal (what they actually want, in plain direct language), and their_struggles (a short paragraph naming their real emotional struggles — go beyond the surface complaint and infer the quieter feelings underneath, like embarrassment about a half-fixed problem or quiet resentment, based on what they've tried and what's still not working). Keep everything grounded in the user's actual answers, don't invent unrelated details. Return ONLY a JSON object in this exact shape: {"who_they_are": "...", "their_goal": "...", "their_struggles": "..."} — no other text, no markdown, no explanation.`;
 
 const QUESTIONS = [
   'Who is your ideal client? (industry, role, team size — be specific)',
   'What do they want more of in their business right now?',
   "What's frustrating them about how things currently run day to day?",
   "What have they already tried or paid for that didn't fully fix the problem?",
-  "What do they feel embarrassed or quietly annoyed about, but wouldn't say out loud to a peer?",
 ];
 
 function json(body, status = 200) {
@@ -38,8 +37,8 @@ export async function POST(req) {
   } catch {
     return json({ error: 'Invalid request body.' }, 400);
   }
-  if (!answers || answers.length !== 5 || answers.some((a) => typeof a !== 'string' || !a.trim())) {
-    return json({ error: 'All 5 answers are required.' }, 400);
+  if (!answers || answers.length !== 4 || answers.some((a) => typeof a !== 'string' || !a.trim())) {
+    return json({ error: 'All 4 answers are required.' }, 400);
   }
 
   const userMessage = QUESTIONS

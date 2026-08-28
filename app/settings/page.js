@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { useBusiness } from '../../lib/BusinessContext';
 
 const QUESTIONS = [
   {
@@ -20,18 +21,15 @@ const QUESTIONS = [
     label: "What have they already tried or paid for that didn't fully fix the problem?",
     placeholder: 'e.g. bought GoHighLevel but only use 20% of it, hired a VA who left after 3 months',
   },
-  {
-    label: "What do they feel embarrassed or quietly annoyed about, but wouldn't say out loud to a peer?",
-    placeholder: "e.g. feels like a fraud saying they're 'automated' when they're still doing most of it manually",
-  },
 ];
 
 const EMPTY_PROFILE = { who_they_are: '', their_goal: '', their_struggles: '' };
 
 export default function SettingsPage() {
+  const { currentId: businessId, current: business } = useBusiness();
   const [profile, setProfile] = useState(EMPTY_PROFILE);
   const [mode, setMode] = useState(null); // 'guided' | 'manual'
-  const [answers, setAnswers] = useState(['', '', '', '', '']);
+  const [answers, setAnswers] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,12 +37,14 @@ export default function SettingsPage() {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!businessId) return;
     setLoading(true);
     setError(null);
+    setSaved(false);
     const { data, error } = await supabase
       .from('audience_profile')
       .select('who_they_are, their_goal, their_struggles')
-      .eq('id', 1)
+      .eq('business_id', businessId)
       .maybeSingle();
     if (error) {
       setError(error.message);
@@ -60,7 +60,7 @@ export default function SettingsPage() {
       setMode(hasAny ? 'manual' : 'guided');
     }
     setLoading(false);
-  }, []);
+  }, [businessId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -69,17 +69,18 @@ export default function SettingsPage() {
 
   async function save(e) {
     e.preventDefault();
+    if (!businessId) return;
     setSaving(true);
     setSaved(false);
     setError(null);
     const { error } = await supabase
       .from('audience_profile')
       .upsert({
-        id: 1,
+        business_id: businessId,
         who_they_are: profile.who_they_are.trim(),
         their_goal: profile.their_goal.trim(),
         their_struggles: profile.their_struggles.trim(),
-      }, { onConflict: 'id' });
+      }, { onConflict: 'business_id' });
     setSaving(false);
     if (error) setError(error.message);
     else {
@@ -92,7 +93,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setError(null);
     if (answers.some((a) => !a.trim())) {
-      setError('Please answer all 5 questions.');
+      setError('Please answer all 4 questions.');
       return;
     }
     setGenerating(true);
@@ -121,7 +122,8 @@ export default function SettingsPage() {
     <div className="container">
       <h1>Audience Profile</h1>
       <div className="subtitle">
-        One-time setup. This is used by the AI <strong>Generate New Week</strong> button on the Topics page to invent
+        {business ? <>Profile for <strong>{business.name}</strong>. Each business has its own. </> : null}
+        Used by the AI <strong>Generate New Week</strong> button on the Topics page to invent
         weekly themes and daily symptoms that sound like your actual reader.
       </div>
 
@@ -148,7 +150,7 @@ export default function SettingsPage() {
                   type="button"
                   className="btn small"
                   style={{ marginLeft: 'auto' }}
-                  onClick={() => { setAnswers(['', '', '', '', '']); setMode('guided'); }}
+                  onClick={() => { setAnswers(['', '', '', '']); setMode('guided'); }}
                 >
                   Redo guided setup
                 </button>
@@ -161,7 +163,7 @@ export default function SettingsPage() {
           {mode === 'guided' && (
             <form onSubmit={submitQuiz} className="card">
               <div className="muted" style={{ marginBottom: 12 }}>
-                Answer these 5 questions. The AI will turn them into your Audience Profile — you'll get to review and edit before saving.
+                Answer these 4 questions. The AI will turn them into your Audience Profile — you'll get to review and edit before saving.
               </div>
               {QUESTIONS.map((q, i) => (
                 <label key={i} className="field">

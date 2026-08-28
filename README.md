@@ -96,7 +96,7 @@ If you want to try it locally before deploying:
 There are three pages. Use the top navigation to switch between them.
 
 ### Home
-- **Which date is Day 1?** — pick the real calendar date you want Day 1 to fall on and click Save. This ONLY controls how days line up on the Calendar page. It does NOT change what "Get Next Prompt" gives you next — that always advances one post at a time from where you left off. You can change the start date at any time.
+- **Which date is Day 1?** — pick the real calendar date you want Day 1 to fall on and click Save. This ONLY controls how days line up on the Calendar page. It does NOT change what "Get Next Prompt" gives you next — that always advances one post at a time from where you left off. You can change the start date at any time. **Per-business setting** — each business tracks its own start date.
 - **Get Next Prompt** — tap the big button. It figures out where you left off (Day X, Post Y of 5), fills the right template with that day's symptom + hook combo, and shows the full prompt.
 - **Copy** — tap Copy, then paste into your custom GPT.
 - **Recent prompts** — expand any entry in the history list to view or re-copy the last 10 prompts.
@@ -131,20 +131,20 @@ There are three pages. Use the top navigation to switch between them.
 - Deleting a day warns you if it already has generated prompts logged against it. The prompts stay in your history either way — they just show as unassigned going forward.
 
 ### Audience (Profile)
-- **One-time setup**, shared across every business. Three textareas describe *who* the reader is, *what* they want, and *what* they're struggling with.
+- **Per-business setting.** Each business in the switcher has its own separate Audience Profile — switching businesses in the topnav loads that business's own values (empty on first visit until you fill them in). Saving under one business never touches another.
+- Three textareas describe *who* the reader is, *what* they want, and *what* they're struggling with.
 - These three fields are the only input the AI **Generate New Week** button needs — after this page is filled in once, generating a new week takes one click. No prompts to write, no context to paste, no per-week input.
 - Seeded on first install with a starting profile you can edit or replace.
 - Requires `GROQ_API_KEY` in your server env (`.env.local` for local dev, Vercel project env vars for production) for the AI generation to work. The key is only used server-side inside the `/api/generate-week` route — it is never sent to the browser.
 
 #### Guided Setup (quiz)
-- If the profile has never been filled in, the page opens on **Guided Setup** — a 5-question quiz. If a profile already exists, it opens on **Write it myself** with the current values, and a "Redo guided setup" link is available either way.
-- The 5 fixed questions are:
+- If the profile has never been filled in, the page opens on **Guided Setup** — a 4-question quiz. If a profile already exists, it opens on **Write it myself** with the current values, and a "Redo guided setup" link is available either way.
+- The 4 fixed questions are:
   1. Who is your ideal client? (industry, role, team size — be specific)
   2. What do they want more of in their business right now?
   3. What's frustrating them about how things currently run day to day?
   4. What have they already tried or paid for that didn't fully fix the problem?
-  5. What do they feel embarrassed or quietly annoyed about, but wouldn't say out loud to a peer?
-- Hitting **Generate my profile** sends the 5 answers to `/api/generate-profile`, which asks Groq to distill them into the three profile fields.
+- Hitting **Generate my profile** sends the 4 answers to `/api/generate-profile`, which asks Groq to distill them into the three profile fields (inferring the quieter emotional layer from what they've tried and what's still not working, rather than asking about it directly).
 - The generated text always lands in the editable **Write it myself** view — nothing is saved until you click **Save**. If generation fails, your answers stay in the quiz so you can retry or fill in the fields manually.
 
 ### Dashboard

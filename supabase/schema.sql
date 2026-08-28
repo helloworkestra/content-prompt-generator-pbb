@@ -57,20 +57,25 @@ create table settings (
   start_date   date
 );
 
--- Single-row audience profile (id is always 1). Used by the AI "Generate New Week"
--- feature to describe the reader so themes stay on-tone.
+-- One audience profile per business. Used by the AI "Generate New Week" feature
+-- to describe the reader so themes stay on-tone. Each business has its own.
 create table audience_profile (
-  id              int primary key check (id = 1),
+  business_id     bigint primary key references businesses(id) on delete cascade,
   who_they_are    text not null default '',
   their_goal      text not null default '',
   their_struggles text not null default ''
 );
-insert into audience_profile (id, who_they_are, their_goal, their_struggles) values (
-  1,
+
+-- Seed a starter profile for the initial "My Business" so the app isn't empty.
+with b as (select id from businesses where name = 'My Business')
+insert into audience_profile (business_id, who_they_are, their_goal, their_struggles)
+select
+  id,
   'US-based tax prep and financial services firm owners, usually running a small team (them plus 2-5 admin or preparer staff), already using GoHighLevel or some CRM but never fully set up right, doing six figures but still buried in manual work every tax season.',
   'They want to stop being the bottleneck in their own business. They want leads to follow up on themselves, appointments to fill without them chasing, and tax season to not feel like a hostage situation every single year.',
   'They feel behind, even though the business is technically doing fine. They feel embarrassed that they paid for a whole CRM system and still do half of it manually. They feel resentful of their own growth, because more clients just means more chaos, not more freedom.'
-) on conflict (id) do nothing;
+from b
+on conflict (business_id) do nothing;
 
 -- --------------------------------------------------------------------
 -- Row Level Security — single-user personal tool, allow anon full access.
@@ -184,19 +189,44 @@ on conflict (business_id) do nothing;
 -- alter table settings drop column if exists id;
 -- alter table settings add primary key (business_id);
 --
--- -- audience_profile (single-row, id=1) for the AI Generate New Week feature
+-- -- audience_profile (per-business) for the AI Generate New Week feature.
+-- -- If you already have the OLD single-row version (id=1), this block also
+-- -- migrates it: adds business_id, backfills the existing row to the first
+-- -- business, drops the id column, and switches the PK.
 -- create table if not exists audience_profile (
---   id              int primary key check (id = 1),
+--   business_id     bigint primary key references businesses(id) on delete cascade,
 --   who_they_are    text not null default '',
 --   their_goal      text not null default '',
 --   their_struggles text not null default ''
 -- );
+--
+-- -- Migrate from single-row (id=1) if applicable. Safe to run on a fresh table too.
+-- alter table audience_profile add column if not exists business_id bigint references businesses(id) on delete cascade;
+-- update audience_profile
+--   set business_id = (select id from businesses order by id limit 1)
+--   where business_id is null;
+-- alter table audience_profile drop constraint if exists audience_profile_pkey;
+-- alter table audience_profile drop constraint if exists audience_profile_id_check;
+-- alter table audience_profile drop column if exists id;
+-- do $$ begin
+--   if not exists (
+--     select 1 from pg_constraint where conname = 'audience_profile_pkey'
+--   ) then
+--     alter table audience_profile add primary key (business_id);
+--   end if;
+-- end $$;
+--
 -- alter table audience_profile enable row level security;
 -- drop policy if exists "audience anon all" on audience_profile;
 -- create policy "audience anon all" on audience_profile for all to anon using (true) with check (true);
--- insert into audience_profile (id, who_they_are, their_goal, their_struggles) values (
---   1,
+--
+-- -- Seed a starter profile for the first business only if none exists yet.
+-- with b as (select id from businesses order by id limit 1)
+-- insert into audience_profile (business_id, who_they_are, their_goal, their_struggles)
+-- select
+--   id,
 --   'US-based tax prep and financial services firm owners, usually running a small team (them plus 2-5 admin or preparer staff), already using GoHighLevel or some CRM but never fully set up right, doing six figures but still buried in manual work every tax season.',
 --   'They want to stop being the bottleneck in their own business. They want leads to follow up on themselves, appointments to fill without them chasing, and tax season to not feel like a hostage situation every single year.',
 --   'They feel behind, even though the business is technically doing fine. They feel embarrassed that they paid for a whole CRM system and still do half of it manually. They feel resentful of their own growth, because more clients just means more chaos, not more freedom.'
--- ) on conflict (id) do nothing;
+-- from b
+-- on conflict (business_id) do nothing;
