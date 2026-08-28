@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { fillTemplate, sequenceForDay } from '../lib/templates';
 import BulkGenerator from '../components/BulkGenerator';
 import { useBusiness } from '../lib/BusinessContext';
+import { DEFAULT_BRANDING, fontStack, pickContrastText, useGoogleFonts } from '../lib/branding';
 
 export default function Home() {
   const { currentId: businessId, current: business } = useBusiness();
@@ -18,6 +19,8 @@ export default function Home() {
   const [startDate, setStartDate] = useState('');
   const [savingStart, setSavingStart] = useState(false);
   const [startSaved, setStartSaved] = useState(false);
+  const [branding, setBranding] = useState(DEFAULT_BRANDING);
+  useGoogleFonts([branding.heading_font, branding.accent_font]);
 
   const loadHistory = useCallback(async () => {
     if (!businessId) return;
@@ -40,13 +43,24 @@ export default function Home() {
     setStartDate(data?.start_date || '');
   }, [businessId]);
 
+  const loadBranding = useCallback(async () => {
+    if (!businessId) return;
+    const { data } = await supabase
+      .from('branding_profile')
+      .select('*')
+      .eq('business_id', businessId)
+      .maybeSingle();
+    setBranding({ ...DEFAULT_BRANDING, ...(data || {}) });
+  }, [businessId]);
+
   useEffect(() => {
     setCurrent(null);
     setNeedsNewDay(false);
     setError(null);
     loadHistory();
     loadSettings();
-  }, [loadHistory, loadSettings]);
+    loadBranding();
+  }, [loadHistory, loadSettings, loadBranding]);
 
   async function saveStartDate(e) {
     e.preventDefault();
@@ -232,7 +246,9 @@ export default function Home() {
 
   return (
     <div className="container">
-      <h1>GHL Content Tracker</h1>
+      <h1 style={{ fontFamily: fontStack(branding.heading_font), color: branding.main_brand_color }}>
+        GHL Content Tracker
+      </h1>
       <div className="subtitle">
         {business ? <>Working on <strong>{business.name}</strong>. </> : null}
         One prompt at a time. Tap the button, copy, paste into your GPT.
@@ -268,7 +284,16 @@ export default function Home() {
           </div>
           <div className="prompt-block">{current.prompt_text}</div>
           <div className="row">
-            <button className="btn primary" onClick={() => copyText(current.prompt_text)}>
+            <button
+              className="btn primary"
+              onClick={() => copyText(current.prompt_text)}
+              style={{
+                background: branding.cta_button_color,
+                color: pickContrastText(branding.cta_button_color),
+                borderColor: branding.cta_button_color,
+                fontFamily: fontStack(branding.accent_font),
+              }}
+            >
               {copied ? 'Copied ✓' : 'Copy'}
             </button>
           </div>

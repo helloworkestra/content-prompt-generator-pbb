@@ -147,6 +147,12 @@ There are three pages. Use the top navigation to switch between them.
 - Hitting **Generate my profile** sends the 4 answers to `/api/generate-profile`, which asks Groq to distill them into the three profile fields (inferring the quieter emotional layer from what they've tried and what's still not working, rather than asking about it directly).
 - The generated text always lands in the editable **Write it myself** view — nothing is saved until you click **Save**. If generation fails, your answers stay in the quiz so you can retry or fill in the fields manually.
 
+### Branding
+- **Per-business setting.** Each business has its own colors and fonts — switching businesses in the topnav loads that business's own branding.
+- 7 color pickers (Main Brand, Text Main, CTA Buttons, Background, Secondary BG, Accent, Soft Accent) and 4 font dropdowns (Heading, Body, Subheading, Accent). Font dropdowns accept typing a custom Google Font name if the one you want isn't in the suggestion list.
+- **Live preview** below the form updates as you type — no need to Save to see the change. Google Fonts are loaded on the fly for whichever fonts are currently selected.
+- **Light styling on the Home page.** The saved brand color + heading font are applied to the Home page heading, and the CTA color + accent font are applied to the "Copy" button on the current-prompt card. Text stays readable — the button text auto-flips to black or white depending on brightness of your chosen background. Everything falls back to sensible defaults if a business hasn't set up branding yet.
+
 ### Dashboard
 - Ranks your posts by average engagement (likes + comments + shares per post) in three tables: by content type, by weekly topic, and by hook combo.
 - Only counts posts where you've entered any engagement numbers. Enter numbers on the Calendar page first.

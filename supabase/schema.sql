@@ -15,6 +15,7 @@ drop table if exists generated_log;
 drop table if exists days;
 drop table if exists settings;
 drop table if exists audience_profile;
+drop table if exists branding_profile;
 drop table if exists businesses;
 
 create table businesses (
@@ -66,6 +67,23 @@ create table audience_profile (
   their_struggles text not null default ''
 );
 
+-- One branding profile per business. Powers the Branding page + light
+-- styling on the Home page (heading + Copy button).
+create table branding_profile (
+  business_id        bigint primary key references businesses(id) on delete cascade,
+  main_brand_color   text not null default '#2563eb',
+  text_main_color    text not null default '#111111',
+  cta_button_color   text not null default '#111111',
+  background_color   text not null default '#ffffff',
+  secondary_bg_color text not null default '#f7f7f8',
+  accent_color       text not null default '#e11d48',
+  soft_accent_color  text not null default '#fde68a',
+  heading_font       text not null default 'Inter',
+  body_font          text not null default 'Inter',
+  subheading_font    text not null default 'Inter',
+  accent_font        text not null default 'Inter'
+);
+
 -- Seed a starter profile for the initial "My Business" so the app isn't empty.
 with b as (select id from businesses where name = 'My Business')
 insert into audience_profile (business_id, who_they_are, their_goal, their_struggles)
@@ -85,18 +103,21 @@ alter table days             enable row level security;
 alter table generated_log    enable row level security;
 alter table settings         enable row level security;
 alter table audience_profile enable row level security;
+alter table branding_profile enable row level security;
 
 drop policy if exists "biz anon all"      on businesses;
 drop policy if exists "days anon all"     on days;
 drop policy if exists "log anon all"      on generated_log;
 drop policy if exists "settings anon all" on settings;
 drop policy if exists "audience anon all" on audience_profile;
+drop policy if exists "branding anon all" on branding_profile;
 
 create policy "biz anon all"      on businesses       for all to anon using (true) with check (true);
 create policy "days anon all"     on days             for all to anon using (true) with check (true);
 create policy "log anon all"      on generated_log    for all to anon using (true) with check (true);
 create policy "settings anon all" on settings         for all to anon using (true) with check (true);
 create policy "audience anon all" on audience_profile for all to anon using (true) with check (true);
+create policy "branding anon all" on branding_profile for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
 -- Seed: a "My Business" business + the original 30 days
@@ -230,3 +251,22 @@ on conflict (business_id) do nothing;
 --   'They feel behind, even though the business is technically doing fine. They feel embarrassed that they paid for a whole CRM system and still do half of it manually. They feel resentful of their own growth, because more clients just means more chaos, not more freedom.'
 -- from b
 -- on conflict (business_id) do nothing;
+--
+-- -- branding_profile (per-business) — colors and fonts for the Branding page.
+-- create table if not exists branding_profile (
+--   business_id        bigint primary key references businesses(id) on delete cascade,
+--   main_brand_color   text not null default '#2563eb',
+--   text_main_color    text not null default '#111111',
+--   cta_button_color   text not null default '#111111',
+--   background_color   text not null default '#ffffff',
+--   secondary_bg_color text not null default '#f7f7f8',
+--   accent_color       text not null default '#e11d48',
+--   soft_accent_color  text not null default '#fde68a',
+--   heading_font       text not null default 'Inter',
+--   body_font          text not null default 'Inter',
+--   subheading_font    text not null default 'Inter',
+--   accent_font        text not null default 'Inter'
+-- );
+-- alter table branding_profile enable row level security;
+-- drop policy if exists "branding anon all" on branding_profile;
+-- create policy "branding anon all" on branding_profile for all to anon using (true) with check (true);
