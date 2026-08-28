@@ -80,7 +80,7 @@ export async function POST(req) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
         temperature: 0.9,
         response_format: { type: 'json_object' },
         messages: [
