@@ -38,6 +38,8 @@ export default function PortraitsPage() {
   const [loading, setLoading] = useState(true);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [editTemplateOpen, setEditTemplateOpen] = useState(false);
+  const [masterCopied, setMasterCopied] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -141,27 +143,84 @@ export default function PortraitsPage() {
       {error && <div className="error">{error}</div>}
       {loading ? <div className="muted">Loading…</div> : (
         <>
-          <form onSubmit={saveTemplate} className="card">
-            <div className="label">Base Template</div>
-            <textarea
-              rows={8}
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              style={{ width: '100%', marginTop: 6, fontFamily: 'inherit', fontSize: 14, padding: 8 }}
-            />
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-              Available placeholders: {PLACEHOLDER_KEYS.map((k) => <code key={k} style={{ marginRight: 6 }}>{`{${k}}`}</code>)}
-            </div>
-            <div className="row" style={{ marginTop: 12 }}>
-              <button type="submit" className="btn primary" disabled={savingTemplate}>
-                {savingTemplate ? 'Saving…' : templateSaved ? 'Saved ✓' : 'Save template'}
-              </button>
-            </div>
-          </form>
-
           {!brandingConfigured && (
             <div className="card" style={{ background: '#fff8e6', borderColor: '#f0e0a5' }}>
               Set up your Branding colors first for accurate portrait prompts. <a href="/branding">Open Branding →</a>
+            </div>
+          )}
+
+          {variations.length > 0 ? (
+            <div className="card">
+              <div className="label">Master Prompt — Variation #{variations[0].position}</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 6 }}>
+                {variations[0].variation_text}
+              </div>
+              <div className="prompt-block">
+                {buildPrompt(template, variations[0].variation_text, branding, brandingConfigured)}
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <button
+                  className="btn primary"
+                  onClick={async () => {
+                    const text = buildPrompt(template, variations[0].variation_text, branding, brandingConfigured);
+                    try { await navigator.clipboard.writeText(text); setMasterCopied(true); setTimeout(() => setMasterCopied(false), 1500); } catch {}
+                  }}
+                >
+                  {masterCopied ? 'Copied ✓' : 'Copy Prompt'}
+                </button>
+                <button
+                  className="btn small"
+                  onClick={() => setEditTemplateOpen((v) => !v)}
+                >
+                  {editTemplateOpen ? 'Hide template editor' : 'Edit template'}
+                </button>
+              </div>
+
+              {editTemplateOpen && (
+                <form onSubmit={saveTemplate} style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee' }}>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Only edit this if you want to change the underlying structure. Available placeholders: {PLACEHOLDER_KEYS.map((k) => <code key={k} style={{ marginRight: 6 }}>{`{${k}}`}</code>)}
+                  </div>
+                  <textarea
+                    rows={10}
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, padding: 8 }}
+                  />
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button type="submit" className="btn primary" disabled={savingTemplate}>
+                      {savingTemplate ? 'Saving…' : templateSaved ? 'Saved ✓' : 'Save template'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : (
+            <div className="card">
+              <div className="muted">Add a variation below to see the Master Prompt here.</div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <button className="btn small" onClick={() => setEditTemplateOpen((v) => !v)}>
+                  {editTemplateOpen ? 'Hide template editor' : 'Edit template'}
+                </button>
+              </div>
+              {editTemplateOpen && (
+                <form onSubmit={saveTemplate} style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee' }}>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Available placeholders: {PLACEHOLDER_KEYS.map((k) => <code key={k} style={{ marginRight: 6 }}>{`{${k}}`}</code>)}
+                  </div>
+                  <textarea
+                    rows={10}
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, padding: 8 }}
+                  />
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button type="submit" className="btn primary" disabled={savingTemplate}>
+                      {savingTemplate ? 'Saving…' : templateSaved ? 'Saved ✓' : 'Save template'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 
@@ -183,41 +242,42 @@ export default function PortraitsPage() {
             </div>
           </form>
 
-          {variations.length === 0 && (
-            <div className="muted">No variations yet — add one above.</div>
+          {variations.length <= 1 && (
+            <div className="muted">
+              {variations.length === 0 ? 'No variations yet — add one above.' : 'Only one variation — add more above to build the list.'}
+            </div>
           )}
 
-          {variations.map((v, idx) => (
-            <VariationRow
-              key={v.id}
-              row={v}
-              template={template}
-              branding={branding}
-              brandingConfigured={brandingConfigured}
-              canUp={idx > 0}
-              canDown={idx < variations.length - 1}
-              onUpdate={(text) => updateVariation(v.id, text)}
-              onDelete={() => deleteVariation(v.id)}
-              onMove={(dir) => move(v.id, dir)}
-            />
-          ))}
+          {variations.slice(1).map((v, idx) => {
+            const rowIdx = idx + 1; // real index in the full array
+            return (
+              <VariationRow
+                key={v.id}
+                row={v}
+                canUp={rowIdx > 1}
+                canDown={rowIdx < variations.length - 1}
+                onUpdate={(text) => updateVariation(v.id, text)}
+                onDelete={() => deleteVariation(v.id)}
+                onMove={(dir) => move(v.id, dir)}
+              />
+            );
+          })}
         </>
       )}
     </div>
   );
 }
 
-function VariationRow({ row, template, branding, brandingConfigured, canUp, canDown, onUpdate, onDelete, onMove }) {
+function VariationRow({ row, canUp, canDown, onUpdate, onDelete, onMove }) {
   const [text, setText] = useState(row.variation_text);
   const [editing, setEditing] = useState(false);
-  const [showFull, setShowFull] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fullPrompt = buildPrompt(template, editing ? text : row.variation_text, branding, brandingConfigured);
+  const shortLine = `Same as before, but swap the bracket part to: ${row.variation_text}`;
 
-  async function copyFull() {
+  async function copyShort() {
     try {
-      await navigator.clipboard.writeText(fullPrompt);
+      await navigator.clipboard.writeText(shortLine);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {}
@@ -245,14 +305,13 @@ function VariationRow({ row, template, branding, brandingConfigured, canUp, canD
               style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, padding: 8 }}
             />
           ) : (
-            <div style={{ fontSize: 14 }}>{row.variation_text}</div>
+            <div style={{ fontSize: 14 }}>
+              <span className="muted">Same as before, but swap the bracket part to:</span> {row.variation_text}
+            </div>
           )}
           <div className="row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-            <button className="btn small primary" onClick={copyFull}>
-              {copied ? 'Copied ✓' : 'Copy Full Prompt'}
-            </button>
-            <button className="btn small" onClick={() => setShowFull((s) => !s)}>
-              {showFull ? 'Hide Full Prompt' : 'Show Full Prompt'}
+            <button className="btn small primary" onClick={copyShort}>
+              {copied ? 'Copied ✓' : 'Copy'}
             </button>
             {editing ? (
               <>
@@ -264,9 +323,6 @@ function VariationRow({ row, template, branding, brandingConfigured, canUp, canD
             )}
             <button className="btn small" style={{ color: '#b00020' }} onClick={onDelete}>Delete</button>
           </div>
-          {showFull && (
-            <div className="prompt-block" style={{ marginTop: 10 }}>{fullPrompt}</div>
-          )}
         </div>
       </div>
     </div>
