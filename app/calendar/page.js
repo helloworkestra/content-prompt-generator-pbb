@@ -93,22 +93,6 @@ export default function CalendarPage() {
         <button className="btn small" onClick={nextMonth}>Next →</button>
       </div>
 
-      {logs.length > 0 && (
-        <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            className="btn small"
-            onClick={async () => {
-              if (!confirm('Reset ALL generated prompts and engagement data for this business? This wipes every day\'s progress. Cannot be undone.')) return;
-              const { error } = await supabase.from('generated_log').delete().eq('business_id', businessId);
-              if (error) setError(error.message);
-              else { setSelectedISO(null); load(); }
-            }}
-          >
-            Reset all
-          </button>
-        </div>
-      )}
-
       <div className="cal-grid">
         {WEEKDAY_SHORT.map((d) => (
           <div key={d} className="cal-weekday">{d}</div>
