@@ -88,18 +88,24 @@ create index portrait_variations_biz_pos_idx on portrait_variations (business_id
 -- One branding profile per business. Powers the Branding page + light
 -- styling on the Home page (heading + Copy button).
 create table branding_profile (
-  business_id        bigint primary key references businesses(id) on delete cascade,
-  main_brand_color   text not null default '#2563eb',
-  text_main_color    text not null default '#111111',
-  cta_button_color   text not null default '#111111',
-  background_color   text not null default '#ffffff',
-  secondary_bg_color text not null default '#f7f7f8',
-  accent_color       text not null default '#e11d48',
-  soft_accent_color  text not null default '#fde68a',
-  heading_font       text not null default 'Inter',
-  body_font          text not null default 'Inter',
-  subheading_font    text not null default 'Inter',
-  accent_font        text not null default 'Inter'
+  business_id             bigint primary key references businesses(id) on delete cascade,
+  main_brand_color        text not null default '#2563eb',
+  main_brand_color_name   text not null default '',
+  text_main_color         text not null default '#111111',
+  text_main_color_name    text not null default '',
+  cta_button_color        text not null default '#111111',
+  background_color        text not null default '#ffffff',
+  background_color_name   text not null default '',
+  secondary_bg_color      text not null default '#f7f7f8',
+  secondary_bg_color_name text not null default '',
+  accent_color            text not null default '#e11d48',
+  accent_color_name       text not null default '',
+  soft_accent_color       text not null default '#fde68a',
+  soft_accent_color_name  text not null default '',
+  heading_font            text not null default 'Inter',
+  body_font               text not null default 'Inter',
+  subheading_font         text not null default 'Inter',
+  accent_font             text not null default 'Inter'
 );
 
 -- Seed a starter profile for the initial "My Business" so the app isn't empty.
@@ -192,10 +198,38 @@ with b as (select id from businesses where name = 'My Business')
 insert into settings (business_id, start_date) select id, null from b
 on conflict (business_id) do nothing;
 
+-- Seed a starter branding profile for the initial business (colors match the
+-- names used in the seeded portrait template so the Master Prompt renders
+-- correctly out of the box).
+with b as (select id from businesses where name = 'My Business')
+insert into branding_profile (
+  business_id,
+  main_brand_color,   main_brand_color_name,
+  text_main_color,    text_main_color_name,
+  cta_button_color,
+  background_color,   background_color_name,
+  secondary_bg_color, secondary_bg_color_name,
+  accent_color,       accent_color_name,
+  soft_accent_color,  soft_accent_color_name,
+  heading_font, body_font, subheading_font, accent_font
+) select
+  id,
+  '#356B52', 'Deep Sage',
+  '#26332D', 'Green-Charcoal',
+  '#26332D',
+  '#FAF9F5', 'Warm Ivory',
+  '#DDE9DF', 'Soft Sage',
+  '#D96B32', 'Terracotta',
+  '#879B78', 'Muted Sage',
+  'Inter', 'Inter', 'Inter', 'Inter'
+from b
+on conflict (business_id) do nothing;
+
 -- Seed the portrait base template + starter variations for the initial business.
+-- {MAIN_COLOR} etc. resolve to "Name `#HEX`". {MAIN_HEX} etc. resolve to just "`#HEX`".
 with b as (select id from businesses where name = 'My Business')
 insert into portrait_base_template (business_id, template_text)
-select id, 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_COLOR}, {TEXT_COLOR}, {BG_COLOR}, {SECONDARY_BG_COLOR}, {ACCENT_COLOR}, {SOFT_ACCENT_COLOR}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.'
+select id, 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_HEX}, {TEXT_HEX}, {BG_HEX}, {SECONDARY_BG_HEX}, {ACCENT_HEX}, {SOFT_ACCENT_HEX}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.'
 from b
 on conflict (business_id) do nothing;
 

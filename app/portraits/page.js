@@ -5,26 +5,59 @@ import { supabase } from '../../lib/supabaseClient';
 import { useBusiness } from '../../lib/BusinessContext';
 import { DEFAULT_BRANDING } from '../../lib/branding';
 
-const DEFAULT_TEMPLATE = 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_COLOR}, {TEXT_COLOR}, {BG_COLOR}, {SECONDARY_BG_COLOR}, {ACCENT_COLOR}, {SOFT_ACCENT_COLOR}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.';
+const DEFAULT_TEMPLATE = 'Using the uploaded photo as the exact likeness reference, generate a professional portrait of this same person, keeping facial features, skin tone, and identity fully consistent and unaltered. {VARIATION}. Studio-quality lighting, soft and natural, no harsh shadows. Background: solid clean color in {TEXT_COLOR} or {BG_COLOR} (pick one, no gradients, no textures, no patterns). Wardrobe color: solid-color shirt in {MAIN_COLOR} or {TEXT_COLOR} as the base, optionally with a small {ACCENT_COLOR} accent (like a subtle collar detail or accessory) — do not introduce any colors outside this exact palette: {MAIN_HEX}, {TEXT_HEX}, {BG_HEX}, {SECONDARY_BG_HEX}, {ACCENT_HEX}, {SOFT_ACCENT_HEX}. Realistic photography style, sharp focus, high resolution, no illustration or cartoon effect, no text or logos in the image.';
 
-const PLACEHOLDER_KEYS = ['VARIATION', 'MAIN_COLOR', 'TEXT_COLOR', 'BG_COLOR', 'SECONDARY_BG_COLOR', 'ACCENT_COLOR', 'SOFT_ACCENT_COLOR'];
+// Placeholders shown in the "available placeholders" hint on the editor.
+const PLACEHOLDER_KEYS = [
+  'VARIATION',
+  'MAIN_COLOR', 'TEXT_COLOR', 'BG_COLOR', 'SECONDARY_BG_COLOR', 'ACCENT_COLOR', 'SOFT_ACCENT_COLOR',
+  'MAIN_HEX',   'TEXT_HEX',   'BG_HEX',   'SECONDARY_BG_HEX',   'ACCENT_HEX',   'SOFT_ACCENT_HEX',
+];
 
-// Maps template placeholder → branding column.
-const COLOR_MAP = {
-  MAIN_COLOR: 'main_brand_color',
-  TEXT_COLOR: 'text_main_color',
-  BG_COLOR: 'background_color',
-  SECONDARY_BG_COLOR: 'secondary_bg_color',
-  ACCENT_COLOR: 'accent_color',
-  SOFT_ACCENT_COLOR: 'soft_accent_color',
+// Named placeholder → {hex column, name column}. Substitutes as "Name `#HEX`".
+const NAMED_COLOR_MAP = {
+  MAIN_COLOR:         { hex: 'main_brand_color',   name: 'main_brand_color_name' },
+  TEXT_COLOR:         { hex: 'text_main_color',    name: 'text_main_color_name' },
+  BG_COLOR:           { hex: 'background_color',   name: 'background_color_name' },
+  SECONDARY_BG_COLOR: { hex: 'secondary_bg_color', name: 'secondary_bg_color_name' },
+  ACCENT_COLOR:       { hex: 'accent_color',       name: 'accent_color_name' },
+  SOFT_ACCENT_COLOR:  { hex: 'soft_accent_color',  name: 'soft_accent_color_name' },
 };
 
+// Hex-only placeholder → hex column. Substitutes as "`#HEX`".
+const HEX_ONLY_MAP = {
+  MAIN_HEX:         'main_brand_color',
+  TEXT_HEX:         'text_main_color',
+  BG_HEX:           'background_color',
+  SECONDARY_BG_HEX: 'secondary_bg_color',
+  ACCENT_HEX:       'accent_color',
+  SOFT_ACCENT_HEX:  'soft_accent_color',
+};
+
+function upperHex(v) {
+  return typeof v === 'string' && v.startsWith('#') ? v.toUpperCase() : v;
+}
+
 function buildPrompt(template, variationText, branding, brandingConfigured) {
-  let out = (template || '').replace(/\{VARIATION\}/g, variationText || '');
-  for (const [ph, col] of Object.entries(COLOR_MAP)) {
-    const value = brandingConfigured ? (branding?.[col] || `{${ph}}`) : `{${ph}}`;
+  // Wrap variation in square brackets, matching the original tone.
+  let out = (template || '').replace(/\{VARIATION\}/g, variationText ? `[${variationText}]` : '{VARIATION}');
+
+  for (const [ph, cols] of Object.entries(NAMED_COLOR_MAP)) {
+    if (!brandingConfigured) continue;
+    const hex = upperHex(branding?.[cols.hex] || '');
+    const name = (branding?.[cols.name] || '').trim();
+    if (!hex) continue;
+    const value = name ? `${name} \`${hex}\`` : `\`${hex}\``;
     out = out.split(`{${ph}}`).join(value);
   }
+
+  for (const [ph, col] of Object.entries(HEX_ONLY_MAP)) {
+    if (!brandingConfigured) continue;
+    const hex = upperHex(branding?.[col] || '');
+    if (!hex) continue;
+    out = out.split(`{${ph}}`).join(`\`${hex}\``);
+  }
+
   return out;
 }
 

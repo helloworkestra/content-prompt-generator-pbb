@@ -6,13 +6,13 @@ import { useBusiness } from '../../lib/BusinessContext';
 import { DEFAULT_BRANDING, GOOGLE_FONT_SUGGESTIONS, fontStack, pickContrastText, useGoogleFonts } from '../../lib/branding';
 
 const COLOR_FIELDS = [
-  { key: 'main_brand_color',   label: 'Main Brand' },
-  { key: 'text_main_color',    label: 'Text — Main' },
+  { key: 'main_brand_color',   label: 'Main Brand',   nameKey: 'main_brand_color_name',   namePlaceholder: 'e.g. Deep Sage' },
+  { key: 'text_main_color',    label: 'Text — Main',  nameKey: 'text_main_color_name',    namePlaceholder: 'e.g. Green-Charcoal' },
   { key: 'cta_button_color',   label: 'CTA Buttons' },
-  { key: 'background_color',   label: 'Background' },
-  { key: 'secondary_bg_color', label: 'Secondary BG' },
-  { key: 'accent_color',       label: 'Accent' },
-  { key: 'soft_accent_color',  label: 'Soft Accent' },
+  { key: 'background_color',   label: 'Background',   nameKey: 'background_color_name',   namePlaceholder: 'e.g. Warm Ivory' },
+  { key: 'secondary_bg_color', label: 'Secondary BG', nameKey: 'secondary_bg_color_name', namePlaceholder: 'e.g. Soft Sage' },
+  { key: 'accent_color',       label: 'Accent',       nameKey: 'accent_color_name',       namePlaceholder: 'e.g. Terracotta' },
+  { key: 'soft_accent_color',  label: 'Soft Accent',  nameKey: 'soft_accent_color_name',  namePlaceholder: 'e.g. Muted Sage' },
 ];
 
 const FONT_FIELDS = [
@@ -65,7 +65,10 @@ export default function BrandingPage() {
     setSaved(false);
     setError(null);
     const payload = { business_id: businessId };
-    for (const { key } of COLOR_FIELDS) payload[key] = form[key].trim().toLowerCase();
+    for (const { key, nameKey } of COLOR_FIELDS) {
+      payload[key] = form[key].trim().toLowerCase();
+      if (nameKey) payload[nameKey] = (form[nameKey] || '').trim();
+    }
     for (const { key } of FONT_FIELDS) payload[key] = (form[key] || '').trim() || DEFAULT_BRANDING[key];
     const { error } = await supabase
       .from('branding_profile')
@@ -90,7 +93,7 @@ export default function BrandingPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
           <form onSubmit={save} className="card">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-              {COLOR_FIELDS.map(({ key, label }) => (
+              {COLOR_FIELDS.map(({ key, label, nameKey, namePlaceholder }) => (
                 <div key={key}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{label}</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -108,6 +111,15 @@ export default function BrandingPage() {
                       style={{ flex: 1, fontFamily: 'monospace', textTransform: 'lowercase' }}
                     />
                   </div>
+                  {nameKey && (
+                    <input
+                      type="text"
+                      value={form[nameKey] || ''}
+                      onChange={(e) => setField(nameKey, e.target.value)}
+                      placeholder={namePlaceholder}
+                      style={{ width: '100%', marginTop: 6, fontSize: 13 }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
