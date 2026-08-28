@@ -47,7 +47,7 @@ function buildPrompt(template, variationText, branding, brandingConfigured) {
     const hex = upperHex(branding?.[cols.hex] || '');
     const name = (branding?.[cols.name] || '').trim();
     if (!hex) continue;
-    const value = name ? `${name} \`${hex}\`` : `\`${hex}\``;
+    const value = name ? `${name} ${hex}` : hex;
     out = out.split(`{${ph}}`).join(value);
   }
 
@@ -55,7 +55,7 @@ function buildPrompt(template, variationText, branding, brandingConfigured) {
     if (!brandingConfigured) continue;
     const hex = upperHex(branding?.[col] || '');
     if (!hex) continue;
-    out = out.split(`{${ph}}`).join(`\`${hex}\``);
+    out = out.split(`{${ph}}`).join(hex);
   }
 
   return out;
