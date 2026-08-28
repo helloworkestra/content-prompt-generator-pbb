@@ -12,6 +12,7 @@ export default function TopicsPage() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // { mode: 'add'|'edit', row }
   const [weekOpen, setWeekOpen] = useState(false);
+  const [weekFilter, setWeekFilter] = useState('all');
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -94,9 +95,22 @@ export default function TopicsPage() {
         changed after creation — they&apos;re what the prompt history is tied to.
       </div>
 
-      <div className="row" style={{ marginTop: 0, marginBottom: 12 }}>
+      <div className="row" style={{ marginTop: 0, marginBottom: 12, alignItems: 'center' }}>
         <button className="btn primary" onClick={openAdd}>+ Add New Topic</button>
         <button className="btn" onClick={() => setWeekOpen(true)}>✨ Add New Week (AI)</button>
+        {(() => {
+          const weeks = Array.from(new Set(days.map(d => d.week_number))).sort((a, b) => a - b);
+          if (!weeks.length) return null;
+          return (
+            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="muted" style={{ fontSize: 13 }}>Week:</span>
+              <select value={weekFilter} onChange={(e) => setWeekFilter(e.target.value)}>
+                <option value="all">All weeks</option>
+                {weeks.map(w => <option key={w} value={w}>Week {w}</option>)}
+              </select>
+            </label>
+          );
+        })()}
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -117,7 +131,7 @@ export default function TopicsPage() {
               </tr>
             </thead>
             <tbody>
-              {days.map((d) => (
+              {days.filter(d => weekFilter === 'all' || String(d.week_number) === String(weekFilter)).map((d) => (
                 <tr key={d.day_number}>
                   <td className="num">{d.day_number}</td>
                   <td className="num">{d.week_number}</td>
