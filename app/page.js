@@ -33,17 +33,23 @@ export default function Home() {
     if (!error) setHistory(data || []);
   }, [businessId]);
 
-  const [captionsGptUrl, setCaptionsGptUrl] = useState('');
+  const [links, setLinks] = useState([]);
 
   const loadSettings = useCallback(async () => {
     if (!businessId) return;
     const { data } = await supabase
       .from('settings')
-      .select('start_date, captions_gpt_url')
+      .select('start_date')
       .eq('business_id', businessId)
       .maybeSingle();
     setStartDate(data?.start_date || '');
-    setCaptionsGptUrl(data?.captions_gpt_url || '');
+
+    const { data: linkRows } = await supabase
+      .from('business_links')
+      .select('id, title, url')
+      .eq('business_id', businessId)
+      .order('position');
+    setLinks(linkRows || []);
   }, [businessId]);
 
   const loadBranding = useCallback(async () => {
@@ -299,16 +305,17 @@ export default function Home() {
             >
               {copied ? 'Copied ✓' : 'Copy'}
             </button>
-            {captionsGptUrl && (
+            {links.map((l) => (
               <a
+                key={l.id}
                 className="btn"
-                href={captionsGptUrl}
+                href={l.url}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Open Captions GPT ↗
+                Open {l.title} ↗
               </a>
-            )}
+            ))}
           </div>
         </div>
       )}

@@ -73,24 +73,24 @@ export default function PortraitsPage() {
   const [templateSaved, setTemplateSaved] = useState(false);
   const [editTemplateOpen, setEditTemplateOpen] = useState(false);
   const [masterCopied, setMasterCopied] = useState(false);
-  const [portraitGptUrl, setPortraitGptUrl] = useState('');
+  const [links, setLinks] = useState([]);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     if (!businessId) return;
     setLoading(true);
     setError(null);
-    const [tplRes, varRes, brRes, stRes] = await Promise.all([
+    const [tplRes, varRes, brRes, linkRes] = await Promise.all([
       supabase.from('portrait_base_template').select('template_text').eq('business_id', businessId).maybeSingle(),
       supabase.from('portrait_variations').select('*').eq('business_id', businessId).order('position'),
       supabase.from('branding_profile').select('*').eq('business_id', businessId).maybeSingle(),
-      supabase.from('settings').select('portrait_gpt_url').eq('business_id', businessId).maybeSingle(),
+      supabase.from('business_links').select('id, title, url').eq('business_id', businessId).order('position'),
     ]);
     setTemplate(tplRes.data?.template_text || DEFAULT_TEMPLATE);
     setVariations(varRes.data || []);
     setBranding({ ...DEFAULT_BRANDING, ...(brRes.data || {}) });
     setBrandingConfigured(!!brRes.data);
-    setPortraitGptUrl(stRes.data?.portrait_gpt_url || '');
+    setLinks(linkRes.data || []);
     setLoading(false);
   }, [businessId]);
 
@@ -204,16 +204,17 @@ export default function PortraitsPage() {
                 >
                   {masterCopied ? 'Copied ✓' : 'Copy Prompt'}
                 </button>
-                {portraitGptUrl && (
+                {links.map((l) => (
                   <a
+                    key={l.id}
                     className="btn"
-                    href={portraitGptUrl}
+                    href={l.url}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Open Portrait GPT ↗
+                    Open {l.title} ↗
                   </a>
-                )}
+                ))}
                 <button
                   className="btn small"
                   onClick={() => setEditTemplateOpen((v) => !v)}
@@ -302,7 +303,7 @@ export default function PortraitsPage() {
                 row={v}
                 canUp={rowIdx > 1}
                 canDown={rowIdx < variations.length - 1}
-                portraitGptUrl={portraitGptUrl}
+                links={links}
                 onUpdate={(text) => updateVariation(v.id, text)}
                 onDelete={() => deleteVariation(v.id)}
                 onMove={(dir) => move(v.id, dir)}
@@ -315,7 +316,7 @@ export default function PortraitsPage() {
   );
 }
 
-function VariationRow({ row, canUp, canDown, portraitGptUrl, onUpdate, onDelete, onMove }) {
+function VariationRow({ row, canUp, canDown, links = [], onUpdate, onDelete, onMove }) {
   const [text, setText] = useState(row.variation_text);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -360,16 +361,17 @@ function VariationRow({ row, canUp, canDown, portraitGptUrl, onUpdate, onDelete,
             <button className="btn small primary" onClick={copyShort}>
               {copied ? 'Copied ✓' : 'Copy'}
             </button>
-            {portraitGptUrl && (
+            {links.map((l) => (
               <a
+                key={l.id}
                 className="btn small"
-                href={portraitGptUrl}
+                href={l.url}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Open Portrait GPT ↗
+                Open {l.title} ↗
               </a>
-            )}
+            ))}
             {editing ? (
               <>
                 <button className="btn small" onClick={saveEdit}>Save edit</button>

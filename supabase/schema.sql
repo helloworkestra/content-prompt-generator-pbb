@@ -18,6 +18,7 @@ drop table if exists audience_profile;
 drop table if exists branding_profile;
 drop table if exists portrait_variations;
 drop table if exists portrait_base_template;
+drop table if exists business_links;
 drop table if exists businesses;
 
 create table businesses (
@@ -57,10 +58,20 @@ create index generated_log_biz_day_post_idx on generated_log (business_id, day_n
 -- One settings row per business.
 create table settings (
   business_id       bigint primary key references businesses(id) on delete cascade,
-  start_date        date,
-  captions_gpt_url  text,
-  portrait_gpt_url  text
+  start_date        date
 );
+
+-- Free-form per-business links (ChatGPTs, docs, dashboards, anything).
+-- Surface everywhere the app has a Copy button so you can jump straight to
+-- where you're about to paste.
+create table business_links (
+  id          bigint generated always as identity primary key,
+  business_id bigint not null references businesses(id) on delete cascade,
+  position    int not null,
+  title       text not null,
+  url         text not null
+);
+create index business_links_biz_pos_idx on business_links (business_id, position);
 
 -- One audience profile per business. Used by the AI "Generate New Week" feature
 -- to describe the reader so themes stay on-tone. Each business has its own.
@@ -132,6 +143,7 @@ alter table audience_profile       enable row level security;
 alter table branding_profile       enable row level security;
 alter table portrait_base_template enable row level security;
 alter table portrait_variations    enable row level security;
+alter table business_links         enable row level security;
 
 drop policy if exists "biz anon all"           on businesses;
 drop policy if exists "days anon all"          on days;
@@ -141,6 +153,7 @@ drop policy if exists "audience anon all"      on audience_profile;
 drop policy if exists "branding anon all"      on branding_profile;
 drop policy if exists "portrait base anon all" on portrait_base_template;
 drop policy if exists "portrait var anon all"  on portrait_variations;
+drop policy if exists "biz links anon all"     on business_links;
 
 create policy "biz anon all"           on businesses             for all to anon using (true) with check (true);
 create policy "days anon all"          on days                   for all to anon using (true) with check (true);
@@ -150,6 +163,7 @@ create policy "audience anon all"      on audience_profile       for all to anon
 create policy "branding anon all"      on branding_profile       for all to anon using (true) with check (true);
 create policy "portrait base anon all" on portrait_base_template for all to anon using (true) with check (true);
 create policy "portrait var anon all"  on portrait_variations    for all to anon using (true) with check (true);
+create policy "biz links anon all"     on business_links         for all to anon using (true) with check (true);
 
 -- --------------------------------------------------------------------
 -- Seed: a "My Business" business + the original 30 days

@@ -16,7 +16,7 @@ export default function AppShell({ children }) {
           <Link href="/settings">Audience</Link>
           <Link href="/branding">Branding</Link>
           <Link href="/portraits">Portraits</Link>
-          <Link href="/gpt-links">GPT Links</Link>
+          <Link href="/links">Links</Link>
           <BusinessSwitcher />
         </div>
       </nav>
