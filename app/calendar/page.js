@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { sequenceForDay } from '../../lib/templates';
+import { useBusiness } from '../../lib/BusinessContext';
 import {
   parseISODate, toISODate, monthGrid, diffDays,
   MONTH_NAMES, WEEKDAY_SHORT,
 } from '../../lib/dateUtils';
 
 export default function CalendarPage() {
+  const { currentId: businessId } = useBusiness();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -19,18 +21,19 @@ export default function CalendarPage() {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!businessId) return;
     const [s, d, l] = await Promise.all([
-      supabase.from('settings').select('start_date').eq('id', 1).maybeSingle(),
-      supabase.from('days').select('*').order('day_number'),
-      supabase.from('generated_log').select('*').order('created_at', { ascending: false }),
+      supabase.from('settings').select('start_date').eq('business_id', businessId).maybeSingle(),
+      supabase.from('days').select('*').eq('business_id', businessId).order('day_number'),
+      supabase.from('generated_log').select('*').eq('business_id', businessId).order('created_at', { ascending: false }),
     ]);
     if (s.data && s.data.start_date) setStartDate(parseISODate(s.data.start_date));
     else setStartDate(null);
-    if (d.data) setDays(d.data);
-    if (l.data) setLogs(l.data);
-  }, []);
+    setDays(d.data || []);
+    setLogs(l.data || []);
+  }, [businessId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setSelectedISO(null); load(); }, [load]);
 
   const dayByNumber = useMemo(() => {
     const m = new Map();
@@ -95,8 +98,8 @@ export default function CalendarPage() {
           <button
             className="btn small"
             onClick={async () => {
-              if (!confirm('Reset ALL generated prompts and engagement data? This wipes every day\'s progress. Cannot be undone.')) return;
-              const { error } = await supabase.from('generated_log').delete().gte('id', 0);
+              if (!confirm('Reset ALL generated prompts and engagement data for this business? This wipes every day\'s progress. Cannot be undone.')) return;
+              const { error } = await supabase.from('generated_log').delete().eq('business_id', businessId);
               if (error) setError(error.message);
               else { setSelectedISO(null); load(); }
             }}
@@ -321,7 +324,7 @@ function PostRow({ postIndex, contentType, log, onSaved, onError }) {
                 style={{ color: '#b00020' }}
                 onClick={async () => {
                   if (!confirm(`Delete Post ${postIndex} (${contentType})? This removes the prompt and its engagement numbers. Cannot be undone.`)) return;
-                  const { error } = await supabase.from('generated_log').delete().eq('id', log.id);
+                  const { error } = await supabase.from('generated_log').delete().eq('id', log.id).eq('business_id', log.business_id);
                   if (error) onError && onError(error.message);
                   else onSaved && onSaved();
                 }}

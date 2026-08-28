@@ -3,22 +3,29 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { CONTENT_TYPES } from '../../lib/templates';
+import { useBusiness } from '../../lib/BusinessContext';
 
 const EMPTY_SEQ = [...CONTENT_TYPES];
 
 export default function TopicsPage() {
+  const { currentId: businessId, current: business } = useBusiness();
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // { mode: 'add'|'edit', row }
 
   const load = useCallback(async () => {
+    if (!businessId) return;
     setLoading(true);
-    const { data, error } = await supabase.from('days').select('*').order('day_number');
+    const { data, error } = await supabase
+      .from('days')
+      .select('*')
+      .eq('business_id', businessId)
+      .order('day_number');
     if (error) setError(error.message);
     else setDays(data || []);
     setLoading(false);
-  }, []);
+  }, [businessId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -63,13 +70,18 @@ export default function TopicsPage() {
     const { count, error: countErr } = await supabase
       .from('generated_log')
       .select('id', { count: 'exact', head: true })
+      .eq('business_id', businessId)
       .eq('day_number', row.day_number);
     if (countErr) { setError(countErr.message); return; }
     const msg = count && count > 0
       ? `This day already has ${count} generated prompt(s) logged against it — deleting it won't remove those logs, but the day number will show as unassigned going forward. Continue?`
       : `Delete Day ${row.day_number} ("${row.topic}")? This cannot be undone.`;
     if (!confirm(msg)) return;
-    const { error: delErr } = await supabase.from('days').delete().eq('day_number', row.day_number);
+    const { error: delErr } = await supabase
+      .from('days')
+      .delete()
+      .eq('business_id', businessId)
+      .eq('day_number', row.day_number);
     if (delErr) setError(delErr.message);
     else load();
   }
@@ -78,6 +90,7 @@ export default function TopicsPage() {
     <div className="container">
       <h1>Topics</h1>
       <div className="subtitle">
+        {business ? <>Editing topics for <strong>{business.name}</strong>. </> : null}
         Every day in your content plan. Edit topics, adjust sequences, or add new days. Day numbers can&apos;t be
         changed after creation — they&apos;re what the prompt history is tied to.
       </div>
@@ -130,6 +143,7 @@ export default function TopicsPage() {
         <TopicForm
           mode={editing.mode}
           initial={editing.row}
+          businessId={businessId}
           existingDayNumbers={days.map(d => d.day_number)}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
@@ -139,7 +153,7 @@ export default function TopicsPage() {
   );
 }
 
-function TopicForm({ mode, initial, existingDayNumbers, onClose, onSaved }) {
+function TopicForm({ mode, initial, businessId, existingDayNumbers, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
@@ -183,11 +197,15 @@ function TopicForm({ mode, initial, existingDayNumbers, onClose, onSaved }) {
     };
     let error;
     if (mode === 'add') {
-      ({ error } = await supabase.from('days').insert(payload));
+      ({ error } = await supabase.from('days').insert({ ...payload, business_id: businessId }));
     } else {
       // day_number is not editable in edit mode
       const { day_number, ...rest } = payload;
-      ({ error } = await supabase.from('days').update(rest).eq('day_number', initial.day_number));
+      ({ error } = await supabase
+        .from('days')
+        .update(rest)
+        .eq('business_id', businessId)
+        .eq('day_number', initial.day_number));
     }
     setSaving(false);
     if (error) setErr(error.message);

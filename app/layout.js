@@ -1,5 +1,5 @@
 import './globals.css';
-import Link from 'next/link';
+import AppShell from '../components/AppShell';
 
 export const metadata = {
   title: 'GHL Content Tracker',
@@ -13,15 +13,7 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>
-        <nav className="topnav">
-          <div className="topnav-inner">
-            <Link href="/">Home</Link>
-            <Link href="/calendar">Calendar</Link>
-            <Link href="/dashboard">Dashboard</Link>
-            <Link href="/topics">Topics</Link>
-          </div>
-        </nav>
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

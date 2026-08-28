@@ -2,17 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
+import { useBusiness } from '../../lib/BusinessContext';
 
 export default function DashboardPage() {
+  const { currentId: businessId, current: business } = useBusiness();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   async function load() {
+    if (!businessId) return;
     setLoading(true);
     const [logRes, dayRes] = await Promise.all([
-      supabase.from('generated_log').select('id, day_number, post_index, content_type, likes, comments, shares'),
-      supabase.from('days').select('day_number, topic, hook_combo'),
+      supabase.from('generated_log').select('id, day_number, post_index, content_type, likes, comments, shares').eq('business_id', businessId),
+      supabase.from('days').select('day_number, topic, hook_combo').eq('business_id', businessId),
     ]);
     const dayMap = new Map((dayRes.data || []).map((d) => [d.day_number, d]));
     const flattened = (logRes.data || []).map((r) => {
@@ -27,23 +30,23 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [businessId]);
 
   async function resetMetrics() {
-    if (!confirm('Reset ALL engagement metrics (likes, comments, shares) back to zero? Prompt history is kept. Cannot be undone.')) return;
+    if (!confirm('Reset ALL engagement metrics (likes, comments, shares) for this business back to zero? Prompt history is kept. Cannot be undone.')) return;
     setError(null);
     const { error } = await supabase
       .from('generated_log')
       .update({ likes: 0, comments: 0, shares: 0, updated_at: new Date().toISOString() })
-      .gte('id', 0);
+      .eq('business_id', businessId);
     if (error) setError(error.message);
     else load();
   }
 
   async function deleteAllPrompts() {
-    if (!confirm('Delete ALL generated prompts and their engagement data? Cannot be undone.')) return;
+    if (!confirm('Delete ALL generated prompts for this business and their engagement data? Cannot be undone.')) return;
     setError(null);
-    const { error } = await supabase.from('generated_log').delete().gte('id', 0);
+    const { error } = await supabase.from('generated_log').delete().eq('business_id', businessId);
     if (error) setError(error.message);
     else load();
   }
@@ -61,6 +64,7 @@ export default function DashboardPage() {
     <div className="container">
       <h1>Dashboard</h1>
       <div className="subtitle">
+        {business ? <>Metrics for <strong>{business.name}</strong>. </> : null}
         Average engagement per post (likes + comments + shares). Only posts with metrics entered are counted.
       </div>
 

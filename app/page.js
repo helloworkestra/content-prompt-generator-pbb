@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fillTemplate, sequenceForDay } from '../lib/templates';
 import BulkGenerator from '../components/BulkGenerator';
+import { useBusiness } from '../lib/BusinessContext';
 
 export default function Home() {
+  const { currentId: businessId, current: business } = useBusiness();
   const [loading, setLoading] = useState(false);
   const [current, setCurrent] = useState(null);
   const [error, setError] = useState(null);
@@ -18,29 +20,43 @@ export default function Home() {
   const [startSaved, setStartSaved] = useState(false);
 
   const loadHistory = useCallback(async () => {
+    if (!businessId) return;
     const { data, error } = await supabase
       .from('generated_log')
       .select('*')
+      .eq('business_id', businessId)
       .order('created_at', { ascending: false })
       .limit(10);
     if (!error) setHistory(data || []);
-  }, []);
+  }, [businessId]);
 
   const loadSettings = useCallback(async () => {
-    const { data } = await supabase.from('settings').select('start_date').eq('id', 1).maybeSingle();
-    if (data && data.start_date) setStartDate(data.start_date);
-  }, []);
+    if (!businessId) return;
+    const { data } = await supabase
+      .from('settings')
+      .select('start_date')
+      .eq('business_id', businessId)
+      .maybeSingle();
+    setStartDate(data?.start_date || '');
+  }, [businessId]);
 
-  useEffect(() => { loadHistory(); loadSettings(); }, [loadHistory, loadSettings]);
+  useEffect(() => {
+    setCurrent(null);
+    setNeedsNewDay(false);
+    setError(null);
+    loadHistory();
+    loadSettings();
+  }, [loadHistory, loadSettings]);
 
   async function saveStartDate(e) {
     e.preventDefault();
+    if (!businessId) return;
     setSavingStart(true);
     setStartSaved(false);
     try {
       const { error } = await supabase
         .from('settings')
-        .upsert({ id: 1, start_date: startDate || null }, { onConflict: 'id' });
+        .upsert({ business_id: businessId, start_date: startDate || null }, { onConflict: 'business_id' });
       if (error) throw error;
       setStartSaved(true);
       setTimeout(() => setStartSaved(false), 1800);
@@ -55,6 +71,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from('generated_log')
       .select('day_number, post_index, created_at')
+      .eq('business_id', businessId)
       .order('created_at', { ascending: false })
       .limit(1);
     if (error) throw error;
@@ -68,6 +85,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from('days')
       .select('*')
+      .eq('business_id', businessId)
       .eq('day_number', dayNumber)
       .maybeSingle();
     if (error) throw error;
@@ -83,6 +101,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from('generated_log')
       .insert({
+        business_id: businessId,
         day_number: dayRow.day_number,
         post_index: postIndex,
         content_type: contentType,
@@ -104,6 +123,7 @@ export default function Home() {
   }
 
   async function handleNext() {
+    if (!businessId) return;
     setError(null);
     setNeedsNewDay(false);
     setLoading(true);
@@ -125,22 +145,24 @@ export default function Home() {
 
   async function handleAddDay(e) {
     e.preventDefault();
+    if (!businessId) return;
     setError(null);
     setLoading(true);
     try {
-      const { data: maxRow, error: maxErr } = await supabase
+      const { data: maxRow } = await supabase
         .from('days')
         .select('day_number, week_number')
+        .eq('business_id', businessId)
         .order('day_number', { ascending: false })
         .limit(1)
-        .single();
-      if (maxErr) throw maxErr;
-      const nextDay = maxRow.day_number + 1;
-      const nextWeek = maxRow.week_number + 1;
+        .maybeSingle();
+      const nextDay = maxRow ? maxRow.day_number + 1 : 1;
+      const nextWeek = maxRow ? maxRow.week_number + 1 : 1;
       const seq = sequenceForDay(nextDay);
       const { data: inserted, error: insErr } = await supabase
         .from('days')
         .insert({
+          business_id: businessId,
           day_number: nextDay,
           week_number: nextWeek,
           topic: newDay.topic,
@@ -165,7 +187,11 @@ export default function Home() {
     if (!confirm('Delete this prompt from history? This cannot be undone.')) return;
     setError(null);
     try {
-      const { error } = await supabase.from('generated_log').delete().eq('id', id);
+      const { error } = await supabase
+        .from('generated_log')
+        .delete()
+        .eq('business_id', businessId)
+        .eq('id', id);
       if (error) throw error;
       if (current && current.id === id) setCurrent(null);
       await loadHistory();
@@ -175,11 +201,14 @@ export default function Home() {
   }
 
   async function resetAll() {
-    if (!confirm('Reset ALL generated prompts? This deletes your entire prompt history and starts the "Get Next Prompt" flow back at Day 1, Post 1. This cannot be undone.')) return;
+    if (!confirm(`Reset ALL generated prompts for "${business?.name || 'this business'}"? This deletes the prompt history for this business only. Cannot be undone.`)) return;
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.from('generated_log').delete().gte('id', 0);
+      const { error } = await supabase
+        .from('generated_log')
+        .delete()
+        .eq('business_id', businessId);
       if (error) throw error;
       setCurrent(null);
       setNeedsNewDay(false);
@@ -204,7 +233,10 @@ export default function Home() {
   return (
     <div className="container">
       <h1>GHL Content Tracker</h1>
-      <div className="subtitle">One prompt at a time. Tap the button, copy, paste into your GPT.</div>
+      <div className="subtitle">
+        {business ? <>Working on <strong>{business.name}</strong>. </> : null}
+        One prompt at a time. Tap the button, copy, paste into your GPT.
+      </div>
 
       <form onSubmit={saveStartDate} className="card" style={{ marginTop: 0 }}>
         <div className="label">Which date is Day 1?</div>
@@ -214,16 +246,16 @@ export default function Home() {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
-          <button className="btn primary" type="submit" disabled={savingStart}>
+          <button className="btn primary" type="submit" disabled={savingStart || !businessId}>
             {savingStart ? 'Saving…' : startSaved ? 'Saved ✓' : 'Save'}
           </button>
         </div>
         <div className="muted" style={{ marginTop: 8 }}>
-          Only used to line up Day 1–30 on the Calendar page. Doesn&apos;t change the "next prompt" order.
+          Only used to line up days on the Calendar page for this business. Doesn&apos;t change the "next prompt" order.
         </div>
       </form>
 
-      <button className="big-btn" style={{ marginTop: 20 }} onClick={handleNext} disabled={loading}>
+      <button className="big-btn" style={{ marginTop: 20 }} onClick={handleNext} disabled={loading || !businessId}>
         {loading ? 'Working…' : 'Get Next Prompt'}
       </button>
 

@@ -3,15 +3,17 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fillTemplate, sequenceForDay } from '../lib/templates';
-import { parseISODate, toISODate, dayNumberForDate, dateForDayNumber } from '../lib/dateUtils';
+import { parseISODate, dayNumberForDate, dateForDayNumber } from '../lib/dateUtils';
+import { useBusiness } from '../lib/BusinessContext';
 
 // Ensures all 5 posts for a given day are generated. Returns:
 //   { dayNumber, dayRow: null, skipped: true }  when day has no topic
 //   { dayNumber, dayRow, posts: [{ post_index, content_type, prompt_text, status: 'already'|'new' }, ...] }
-async function ensureDayGenerated(dayNumber) {
+async function ensureDayGenerated(businessId, dayNumber) {
   const { data: dayRow, error: dayErr } = await supabase
     .from('days')
     .select('*')
+    .eq('business_id', businessId)
     .eq('day_number', dayNumber)
     .maybeSingle();
   if (dayErr) throw dayErr;
@@ -20,6 +22,7 @@ async function ensureDayGenerated(dayNumber) {
   const { data: existing, error: logErr } = await supabase
     .from('generated_log')
     .select('*')
+    .eq('business_id', businessId)
     .eq('day_number', dayNumber);
   if (logErr) throw logErr;
 
@@ -48,6 +51,7 @@ async function ensureDayGenerated(dayNumber) {
     const contentType = seq[i - 1];
     const prompt = fillTemplate(contentType, dayRow.symptom, dayRow.hook_combo);
     const { error: insErr } = await supabase.from('generated_log').insert({
+      business_id: businessId,
       day_number: dayNumber,
       post_index: i,
       content_type: contentType,
@@ -68,6 +72,7 @@ async function copy(text, setCopiedKey, key) {
 }
 
 export default function BulkGenerator({ onGenerated }) {
+  const { currentId: businessId } = useBusiness();
   const [startDate, setStartDate] = useState(null);
   const [mode, setMode] = useState(null); // 'day' | 'range' | null
   const [dayInput, setDayInput] = useState('1');
@@ -78,16 +83,24 @@ export default function BulkGenerator({ onGenerated }) {
   const [rangeEndDate, setRangeEndDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [results, setResults] = useState([]); // array of ensureDayGenerated results
+  const [results, setResults] = useState([]);
   const [copiedKey, setCopiedKey] = useState(null);
   const [endNote, setEndNote] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('settings').select('start_date').eq('id', 1).maybeSingle();
+      if (!businessId) return;
+      setResults([]);
+      setEndNote(null);
+      const { data } = await supabase
+        .from('settings')
+        .select('start_date')
+        .eq('business_id', businessId)
+        .maybeSingle();
       if (data && data.start_date) setStartDate(parseISODate(data.start_date));
+      else setStartDate(null);
     })();
-  }, []);
+  }, [businessId]);
 
   function resolveDayNumberFromDate(iso) {
     if (!iso || !startDate) return null;
@@ -105,7 +118,7 @@ export default function BulkGenerator({ onGenerated }) {
     if (!Number.isInteger(dn) || dn < 1) { setError('Pick a valid day.'); return; }
     setBusy(true);
     try {
-      const r = await ensureDayGenerated(dn);
+      const r = await ensureDayGenerated(businessId, dn);
       setResults([r]);
       onGenerated && onGenerated();
     } catch (e) { setError(e.message); }
@@ -118,10 +131,10 @@ export default function BulkGenerator({ onGenerated }) {
     setEndNote(null);
     setBusy(true);
     try {
-      // Same starting-slot logic as "Get Next Prompt": most recent log row wins.
       const { data: lastArr } = await supabase
         .from('generated_log')
         .select('day_number, post_index')
+        .eq('business_id', businessId)
         .order('created_at', { ascending: false })
         .limit(1);
       let startDay;
@@ -131,12 +144,12 @@ export default function BulkGenerator({ onGenerated }) {
 
       const out = [];
       let dn = startDay;
-      const HARD_CAP = 365; // sanity guard
+      const HARD_CAP = 365;
       let processed = 0;
       let lastFilled = startDay - 1;
       while (processed < HARD_CAP) {
         // eslint-disable-next-line no-await-in-loop
-        const r = await ensureDayGenerated(dn);
+        const r = await ensureDayGenerated(businessId, dn);
         if (r.skipped) {
           setEndNote(`Reached the end of your available topics after Day ${lastFilled}. Add more on the Topics page to keep generating.`);
           break;
@@ -178,7 +191,7 @@ export default function BulkGenerator({ onGenerated }) {
       const out = [];
       for (let dn = s; dn <= en; dn++) {
         // eslint-disable-next-line no-await-in-loop
-        const r = await ensureDayGenerated(dn);
+        const r = await ensureDayGenerated(businessId, dn);
         out.push(r);
         setResults([...out]);
       }
@@ -206,7 +219,7 @@ export default function BulkGenerator({ onGenerated }) {
         <button
           className="btn"
           onClick={() => { setMode(null); runRemaining(); }}
-          disabled={busy}
+          disabled={busy || !businessId}
         >
           {busy ? 'Working…' : 'Generate all remaining'}
         </button>
@@ -243,7 +256,7 @@ export default function BulkGenerator({ onGenerated }) {
             </label>
           )}
           <div className="row">
-            <button className="btn primary" type="submit" disabled={busy}>
+            <button className="btn primary" type="submit" disabled={busy || !businessId}>
               {busy ? 'Working…' : 'Generate all 5 posts'}
             </button>
           </div>
@@ -283,7 +296,7 @@ export default function BulkGenerator({ onGenerated }) {
             </>
           )}
           <div className="row">
-            <button className="btn primary" type="submit" disabled={busy}>
+            <button className="btn primary" type="submit" disabled={busy || !businessId}>
               {busy ? 'Working…' : 'Generate range'}
             </button>
           </div>
