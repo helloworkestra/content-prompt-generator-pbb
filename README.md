@@ -159,6 +159,14 @@ There are three pages. Use the top navigation to switch between them.
 - Every row has a **Copy Full Prompt** button that stitches the template + this variation + the current Branding colors into one clipboard-ready prompt, plus a **Show Full Prompt** toggle to preview it first.
 - If Branding hasn't been set up yet for this business, a small warning links to the Branding page and the color placeholders stay literal in the preview instead of breaking.
 
+### Visuals
+- **Per-business master graphic prompt** for generating a branded 1:1 social media graphic from a supplied headline + photo + approved logo.
+- One long, detailed template with strict rules around colors, fonts, layout, decorative asset limits, and icon usage. Placeholders resolve at copy-time from Branding.
+- Placeholder set: `{OWNER_NAME}`, `{OWNER_TITLE}`, `{MAIN_COLOR_NAME}`/`{MAIN_COLOR_HEX}` (and matching pairs for Text, BG, Secondary BG, Accent, Soft Accent), plus `{HEADING_FONT}`, `{BODY_FONT}`, `{SUBHEADING_FONT}`, `{ACCENT_FONT}`.
+- **`{OWNER_NAME}` comes from the business's own name** (the same value shown in the top-nav business switcher) — no separate input needed. `{OWNER_TITLE}` still comes from the editable "Owner Title" field on the Branding page.
+- Rendered prompt is shown read-only with a **Copy Prompt** button; an **Edit template** toggle exposes the raw template with placeholders intact and a Save button for structural changes.
+- If Branding hasn't been set up yet for this business, a small warning links to the Branding page.
+
 ### Links
 - **Per-business list of shortcuts.** Add any number of labeled URLs — custom ChatGPTs, content calendar docs, dashboards, drives, anything you want quick access to while working.
 - Add / edit / delete / reorder on the **Links** page in the topnav. Basic http(s) validation on save.

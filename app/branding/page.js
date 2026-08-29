@@ -70,7 +70,6 @@ export default function BrandingPage() {
       if (nameKey) payload[nameKey] = (form[nameKey] || '').trim();
     }
     for (const { key } of FONT_FIELDS) payload[key] = (form[key] || '').trim() || DEFAULT_BRANDING[key];
-    payload.owner_name  = (form.owner_name  || '').trim();
     payload.owner_title = (form.owner_title || '').trim();
     const { error } = await supabase
       .from('branding_profile')
@@ -96,16 +95,6 @@ export default function BrandingPage() {
           <form onSubmit={save} className="card">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 16 }}>
               <label className="field" style={{ marginBottom: 0 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Owner Name</span>
-                <input
-                  type="text"
-                  value={form.owner_name || ''}
-                  onChange={(e) => setField('owner_name', e.target.value)}
-                  placeholder="e.g. Giem Muel Catubay"
-                  style={{ marginTop: 6 }}
-                />
-              </label>
-              <label className="field" style={{ marginBottom: 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Owner Title</span>
                 <input
                   type="text"
@@ -114,6 +103,9 @@ export default function BrandingPage() {
                   placeholder="e.g. GHL Specialist for Tax Firms"
                   style={{ marginTop: 6 }}
                 />
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  Owner Name is now taken from the business's own name (top-nav switcher) automatically.
+                </div>
               </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
