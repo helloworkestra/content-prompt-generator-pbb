@@ -295,6 +295,9 @@ export default function VisualsPage() {
   const [editTemplateOpen, setEditTemplateOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
+  const [headline, setHeadline] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageLoading, setImageLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -329,6 +332,27 @@ export default function VisualsPage() {
   }
 
   const rendered = buildPrompt(template, business?.name, branding, brandingConfigured);
+
+  function buildImagePrompt() {
+    const b = branding || DEFAULT_BRANDING;
+    const parts = [
+      headline.trim() ? `Headline text on graphic: "${headline.trim()}".` : 'Clean branded social media graphic.',
+      `Square 1:1 social media graphic. Minimal, premium, modern.`,
+      `Background color ${b.text_main_color}. Primary brand color ${b.main_brand_color}. Accent ${b.accent_color}.`,
+      `Bold sans-serif headline in ${b.background_color} with 1-2 words emphasized in ${b.main_brand_color}.`,
+      `A single soft rounded organic blob shape in the corner. No extra decorations, no icons unless necessary, lots of whitespace.`,
+      `No extra text, no logos, no watermarks.`,
+    ];
+    return parts.join(' ');
+  }
+
+  function generateImage() {
+    const prompt = buildImagePrompt();
+    const seed = Math.floor(Math.random() * 1_000_000);
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+    setImageLoading(true);
+    setImageUrl(url);
+  }
 
   return (
     <div className="container">
@@ -373,6 +397,41 @@ export default function VisualsPage() {
               <button className="btn small" onClick={() => setEditTemplateOpen((v) => !v)}>
                 {editTemplateOpen ? 'Hide template editor' : 'Edit template'}
               </button>
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #eee' }}>
+              <div className="label">Quick preview (Pollinations, free)</div>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                Types a headline, hit Generate — Pollinations returns a branded 1:1 image based on your brand colors. Free, no API key. Quality is decent, not on par with a manual design tool. For real posts use the Copy Prompt above in a full design AI.
+              </div>
+              <textarea
+                rows={2}
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="Headline text for this graphic"
+                style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, padding: 8 }}
+              />
+              <div className="row" style={{ marginTop: 8 }}>
+                <button className="btn primary" onClick={generateImage} disabled={!headline.trim()}>
+                  {imageUrl ? 'Regenerate' : 'Generate Preview'}
+                </button>
+                {imageUrl && (
+                  <a className="btn" href={imageUrl} target="_blank" rel="noopener noreferrer">Open full size ↗</a>
+                )}
+              </div>
+              {imageUrl && (
+                <div style={{ marginTop: 12, position: 'relative' }}>
+                  {imageLoading && <div className="muted" style={{ marginBottom: 6 }}>Generating… (can take 5-20s)</div>}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt="Generated preview"
+                    onLoad={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
+                    style={{ maxWidth: 512, width: '100%', borderRadius: 8, border: '1px solid #eee', display: 'block' }}
+                  />
+                </div>
+              )}
             </div>
 
             {editTemplateOpen && (
